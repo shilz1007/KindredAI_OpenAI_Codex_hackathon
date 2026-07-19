@@ -1,0 +1,2 @@
+"""Kindred AI backend package."""
+

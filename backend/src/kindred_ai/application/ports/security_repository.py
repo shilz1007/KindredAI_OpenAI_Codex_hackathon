@@ -1,0 +1,26 @@
+"""Application port for Security MCP persistence."""
+
+from datetime import datetime
+from typing import Protocol
+
+from kindred_ai.domain.security import PhoneMessage, SecurityAlert, SecurityEvent
+
+
+class SecurityRepository(Protocol):
+    """Persistence operations required by Security MCP use cases."""
+
+    def add_event(
+        self, *, event_id: str, message: str, risk_level: str, matched_signals: tuple[str, ...], created_at: datetime,
+    ) -> SecurityEvent: ...
+
+    def get_event(self, event_id: str) -> SecurityEvent | None: ...
+
+    def add_alert(
+        self, *, alert_id: str, event_id: str, severity: str, status: str, created_at: datetime,
+    ) -> SecurityAlert: ...
+
+    def get_events(self, limit: int) -> list[SecurityEvent]: ...
+    def add_phone_message(self, *, message_id: str, message: str, received_at: datetime) -> PhoneMessage: ...
+    def complete_phone_message(self, *, message_id: str, risk_level: str, explanation: str, signals: tuple[str, ...], event_id: str | None) -> PhoneMessage: ...
+    def fail_phone_message(self, *, message_id: str) -> PhoneMessage: ...
+    def get_phone_messages(self, limit: int) -> list[PhoneMessage]: ...

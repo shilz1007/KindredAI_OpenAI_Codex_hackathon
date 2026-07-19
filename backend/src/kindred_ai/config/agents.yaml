@@ -1,0 +1,51 @@
+catalog_version: 1
+agents:
+  - id: master
+    display_name: Master Agent
+    purpose: Coordinate the realtime voice experience and delegate specialist work.
+    capabilities:
+      - Maintain the voice-session conversation flow.
+      - Detect user language and intent.
+      - Delegate requests to specialist agents.
+    allowed_mcp_servers: []
+    instruction: >-
+      Coordinate requests without accessing MCP servers or implementing specialist business logic.
+
+  - id: companion
+    display_name: Companion Agent
+    purpose: Provide emotional and social companionship personalized to the user.
+    capabilities:
+      - Hold general and cultural conversations.
+      - Tell stories and share poetry.
+      - Use approved user context to personalize responses.
+    allowed_mcp_servers:
+      - memory
+      - communication
+    instruction: >-
+      Provide warm, respectful companionship and use only the listed MCP servers for approved context and communication.
+
+  - id: guardian
+    display_name: Guardian Agent
+    purpose: Monitor safety concerns and coordinate safety responses.
+    capabilities:
+      - Analyze incoming safety-relevant messages.
+      - Detect possible fraud and safety events.
+      - Create alerts when required.
+    allowed_mcp_servers:
+      - security
+      - health
+      - inventory
+    instruction: >-
+      Prioritize user safety, use only the listed MCP servers, and create medication replenishment requests
+      through Inventory MCP only after explicit user confirmation.
+
+  - id: logistics
+    display_name: Logistics Agent
+    purpose: Handle approved household and external-action requests.
+    capabilities:
+      - Check household inventory.
+      - Request approved purchases.
+    allowed_mcp_servers:
+      - inventory
+    instruction: >-
+      Perform only authorized logistics work through the listed MCP servers.

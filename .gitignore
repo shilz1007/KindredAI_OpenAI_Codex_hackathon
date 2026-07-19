@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+node_modules/
+*.tsbuildinfo
+
+# Local runtime databases
+backend/data/
+
+# Local secrets (the tracked .env.example files are safe templates)
+.env
+.env.*
+!.env.example
