@@ -6,52 +6,44 @@ type Alert = { id: string; risk_level: string; details: string | null };
 
 const API = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000/api/v1";
 const sessionId = crypto.randomUUID();
-
-async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API}${path}`, { headers: { "Content-Type": "application/json" }, ...options });
-  if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? "Kindred could not complete that request.");
-  return response.status === 204 ? (undefined as T) : response.json() as Promise<T>;
-}
+async function api<T>(path: string, options?: RequestInit): Promise<T> { const response = await fetch(`${API}${path}`, { headers: { "Content-Type": "application/json" }, ...options }); if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? "Kindred could not complete that request."); return response.status === 204 ? undefined as T : response.json() as Promise<T>; }
 
 export function App() {
-  const [role, setRole] = useState<"elder" | "caregiver">("elder");
-  const [messages, setMessages] = useState<ChatMessage[]>([{ role: "assistant", content: "Good morning, Anita. How can I help today?" }]);
-  const [draft, setDraft] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [medications, setMedications] = useState<Medication[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-
-  const todayLabel = useMemo(() => new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date()), []);
-  const refreshDashboard = async () => {
-    try {
-      const [schedule, securityAlerts] = await Promise.all([api<Medication[]>("/health/medication-schedule"), api<Alert[]>("/security/events")]);
-      setMedications(schedule); setAlerts(securityAlerts);
-    } catch { /* The chat remains usable even if a dashboard card cannot refresh. */ }
-  };
-  useEffect(() => { void refreshDashboard(); }, []);
-
-  const sendMessage = async (event: FormEvent) => {
-    event.preventDefault(); const message = draft.trim(); if (!message || loading) return;
-    setMessages(current => [...current, { role: "user", content: message }]); setDraft(""); setError(""); setLoading(true);
-    try {
-      const result = await api<{ reply: string }>(`/master/conversations/${sessionId}/turns`, { method: "POST", body: JSON.stringify({ message }) });
-      setMessages(current => [...current, { role: "assistant", content: result.reply }]); await refreshDashboard();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to reach Kindred."); }
-    finally { setLoading(false); }
-  };
-  const clearConversation = async () => { await api<void>(`/master/conversations/${sessionId}`, { method: "DELETE" }); setMessages([{ role: "assistant", content: "Conversation cleared. How can I help?" }]); };
-
-  return <main className="app-shell">
-    <header><div><p className="eyebrow">KINDRED CARE COMPANION</p><h1>Good morning, Anita</h1><p>{todayLabel}</p></div><div className="role-switch" aria-label="Demo role"><button className={role === "elder" ? "active" : ""} onClick={() => setRole("elder")}>Elder view</button><button className={role === "caregiver" ? "active" : ""} onClick={() => setRole("caregiver")}>Caregiver view</button></div></header>
-    <p className="demo-banner">Demo mode — messages, calls, reminders, and orders are simulated. No real action is taken.</p>
-    {role === "elder" ? <section className="elder-layout">
-      <section className="conversation card"><div className="card-title"><h2>Talk with Kindred</h2><button className="text-button" onClick={() => void clearConversation()}>Clear</button></div><div className="chat" aria-live="polite">{messages.map((message, index) => <p className={`bubble ${message.role}`} key={index}>{message.content}</p>)}{loading && <p className="bubble assistant">Kindred is thinking…</p>}</div><form onSubmit={sendMessage}><label htmlFor="message">Type your message</label><div className="composer"><input id="message" value={draft} onChange={event => setDraft(event.target.value)} placeholder="For example: Tell my son to call me" /><button type="submit">Send</button></div></form><button className="voice-button" disabled title="WebRTC voice is the next integration step">🎙 Start voice conversation <span>Coming next</span></button>{error && <p className="error">{error}</p>}</section>
-      <aside className="status-column"><section className="card"><h2>Today</h2><p>Ask Kindred to add a reminder, check your plans, or contact family.</p><div className="quick-actions"><button onClick={() => setDraft("Show my medication supply")}>My medicines</button><button onClick={() => setDraft("Tell my son to call me")}>Call family</button><button onClick={() => setDraft("Remind me to buy tea leaves")}>Remind me</button><button onClick={() => setDraft("Do I need to buy Jasmine tea?")}>Household supplies</button></div></section><section className="card"><h2>Medication</h2>{medications.map(medication => <p key={medication.id}><strong>{medication.medication_name}</strong><br />{medication.dose_instructions} · {medication.daily_times.join(", ")}</p>)}</section></aside>
-    </section> : <Caregiver medications={medications} alerts={alerts} refresh={refreshDashboard} />}
-  </main>;
+  const [role, setRole] = useState<"elder" | "caregiver">("elder"); const [helperOpen, setHelperOpen] = useState(false); const [screen, setScreen] = useState<"companion" | "admin">("companion");
+  const [signedIn, setSignedIn] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([{ role: "assistant", content: "Good morning, Anita. How can I help today?" }]); const [draft, setDraft] = useState(""); const [loading, setLoading] = useState(false); const [error, setError] = useState(""); const [medications, setMedications] = useState<Medication[]>([]); const [alerts, setAlerts] = useState<Alert[]>([]);
+  const today = useMemo(() => new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date()), []);
+  const refresh = async () => { try { const [schedule, security] = await Promise.all([api<Medication[]>("/health/medication-schedule"), api<Alert[]>("/security/events")]); setMedications(schedule); setAlerts(security); } catch {} };
+  useEffect(() => { void refresh(); }, []);
+  const send = async (event: FormEvent) => { event.preventDefault(); const message = draft.trim(); if (!message || loading) return; setMessages(items => [...items, { role: "user", content: message }]); setDraft(""); setLoading(true); setError(""); try { const result = await api<{ reply: string }>(`/master/conversations/${sessionId}/turns`, { method: "POST", body: JSON.stringify({ message }) }); setMessages(items => [...items, { role: "assistant", content: result.reply }]); await refresh(); } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to reach Kindred."); } finally { setLoading(false); } };
+  const clear = async () => { await api<void>(`/master/conversations/${sessionId}`, { method: "DELETE" }); setMessages([{ role: "assistant", content: "Conversation cleared. How can I help?" }]); };
+  if (!signedIn) return <Login onLogin={() => setSignedIn(true)} onAdmin={() => { setSignedIn(true); setScreen("admin"); }} />;
+  if (screen === "admin") return <Admin onBack={() => setScreen("companion")} />;
+  return <main className="app-shell"><header className="top-bar"><div><p className="eyebrow">KINDRED CARE COMPANION</p><h1>Good morning, Anita</h1><p>{today}</p></div><div className="top-actions"><button className="helper-toggle" onClick={() => setScreen("admin")}>Judge admin</button><button className="helper-toggle" onClick={() => setHelperOpen(value => !value)}>{helperOpen ? "Close my day" : "My day"}</button><div className="role-switch"><button className={role === "elder" ? "active" : ""} onClick={() => setRole("elder")}>Elder</button><button className={role === "caregiver" ? "active" : ""} onClick={() => setRole("caregiver")}>Caregiver</button></div></div></header>{role === "elder" ? <section className="elder-layout"><section className="conversation card"><div className="card-title"><div><p className="companion-status">Kindred is here with you</p><h2>What would you like to do?</h2></div><button className="text-button" onClick={() => void clear()}>Clear</button></div><div className="chat" aria-live="polite">{messages.map((message, index) => <p className={`bubble ${message.role}`} key={index}>{message.content}</p>)}{loading && <p className="bubble assistant">Kindred is thinking...</p>}</div><form onSubmit={send}><label htmlFor="message">Type your message</label><div className="composer"><input id="message" value={draft} onChange={event => setDraft(event.target.value)} placeholder="For example: Tell my son to call me" /><button>Send</button></div></form><button className="voice-button" disabled>Start a voice conversation <span>Coming next</span></button>{error && <p className="error">{error}</p>}</section><aside className={`status-column ${helperOpen ? "open" : ""}`}><section className="card"><h2>Today with Kindred</h2><p>Choose a helpful prompt, or simply ask in your own words.</p><div className="quick-actions"><button onClick={() => setDraft("Show my medication supply")}>My medicines</button><button onClick={() => setDraft("Tell my son to call me")}>Call family</button><button onClick={() => setDraft("Remind me to buy tea leaves")}>Remind me</button><button onClick={() => setDraft("Do I need to buy Jasmine tea?")}>Household supplies</button></div></section><section className="card"><h2>Medication</h2>{medications.map(item => <p key={item.id}><strong>{item.medication_name}</strong><br />{item.dose_instructions} · {item.daily_times.join(", ")}</p>)}</section></aside></section> : <Caregiver medications={medications} alerts={alerts} refresh={refresh} />}<p className="demo-banner">Demo mode — messages, calls, reminders, and orders are simulated.</p></main>;
 }
 
-function Caregiver({ medications, alerts, refresh }: { medications: Medication[]; alerts: Alert[]; refresh: () => Promise<void> }) {
-  return <section className="caregiver"><div className="card-title"><div><h2>Caregiver dashboard</h2><p>Shared demo data only.</p></div><button onClick={() => void refresh()}>Refresh</button></div><div className="dashboard-grid"><section className="card"><h3>Medication schedules</h3>{medications.map(medication => <p key={medication.id}><strong>{medication.medication_name}</strong><br />{medication.daily_times.join(", ")}</p>)}</section><section className="card"><h3>Security events</h3>{alerts.length ? alerts.map(alert => <p key={alert.id}><strong className={`risk ${alert.risk_level}`}>{alert.risk_level}</strong> {alert.details ?? "Security event"}</p>) : <p>No security events.</p>}</section><section className="card"><h3>Management</h3><p>Use the current API-backed panels for phone book, reminders, household inventory, and simulated communications.</p><p className="muted">Detailed management forms are the next UI increment.</p></section></div></section>;
+function Login({ onLogin, onAdmin }: { onLogin: () => void; onAdmin: () => void }) { const [showPassword, setShowPassword] = useState(false); const submit = (event: FormEvent) => { event.preventDefault(); onLogin(); }; return <main className="login-page"><form className="login-card" onSubmit={submit}><p className="login-mark">K</p><h1>Welcome to Kindred</h1><p className="login-subtitle">Your digital care companion</p><label htmlFor="login-id">User ID or email</label><input id="login-id" autoComplete="username" placeholder="Anita or your email" required /><label htmlFor="login-password">Password</label><div className="password-row"><input id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Enter password" required /><button type="button" onClick={() => setShowPassword(value => !value)}>{showPassword ? "Hide" : "Show"}</button></div><button className="login-button">Enter Kindred</button><p className="login-help">Demo sign-in only. Enter any details to continue.</p><button className="admin-login" type="button" onClick={onAdmin}>Open Judge/Admin sandbox</button></form></main>; }
+
+function Admin({ onBack }: { onBack: () => void }) {
+  const [status, setStatus] = useState("Ready to create prototype records.");
+  const [phoneMessage, setPhoneMessage] = useState("Urgent: your bank account is blocked. Send the verification code now.");
+  const [memory, setMemory] = useState("Anita enjoys morning tea in the garden.");
+  const [reminder, setReminder] = useState("Buy tea leaves");
+  const [scheduleId, setScheduleId] = useState("demo-schedule-metformin");
+  const [note, setNote] = useState("Recorded from Judge Admin");
+  const [contactId, setContactId] = useState("son");
+  const [familyMessage, setFamilyMessage] = useState("Please call me when you can.");
+  const [itemName, setItemName] = useState("Jasmine tea");
+  const [quantity, setQuantity] = useState(2);
+  const submit = (path: string, body: object) => async (event: FormEvent) => { event.preventDefault(); try { await api(path, { method: "POST", body: JSON.stringify(body) }); setStatus(`Saved through ${path}. Return to Kindred to test the new data.`); } catch (error) { setStatus(error instanceof Error ? error.message : "Could not save the record."); } };
+  return <main className="admin-page"><header className="admin-header"><div><p className="eyebrow">JUDGE SANDBOX</p><h1>Kindred Admin</h1><p>Enter test data below. Each action writes through the real FastAPI endpoint into the prototype database.</p></div><button onClick={onBack}>Back to Kindred</button></header><p className="admin-status">{status}</p><section className="admin-grid">
+    <form className="admin-card" onSubmit={submit("/security/phone-messages", { message: phoneMessage })}><h2>Simulated phone inbox</h2><p>Stores and classifies a phone message for the Guardian security workflow.</p><textarea value={phoneMessage} onChange={event => setPhoneMessage(event.target.value)} required /><button>Save and analyze message</button></form>
+    <form className="admin-card" onSubmit={submit("/memory/memories", { content: memory, category: "preference", source: "judge-admin", importance: 3 })}><h2>Personal memory</h2><p>Add an approved preference or fact for Companion to retrieve.</p><textarea value={memory} onChange={event => setMemory(event.target.value)} required /><button>Save memory</button></form>
+    <form className="admin-card" onSubmit={submit("/logistics/reminders", { title: reminder, remind_at: "2026-07-26T09:00:00+02:00" })}><h2>Create reminder</h2><p>Creates a simulated household reminder for 26 July at 09:00.</p><input value={reminder} onChange={event => setReminder(event.target.value)} required /><button>Create reminder</button></form>
+    <form className="admin-card" onSubmit={submit("/health/medication-taken", { schedule_id: scheduleId, note })}><h2>Record medication taken</h2><p>Use the seeded Metformin schedule ID, or another valid active schedule ID.</p><input value={scheduleId} onChange={event => setScheduleId(event.target.value)} required /><input value={note} onChange={event => setNote(event.target.value)} placeholder="Optional note" /><button>Record dose</button></form>
+    <form className="admin-card" onSubmit={submit("/companion/family-messages", { contact_id: contactId, content: familyMessage, user_approved: true })}><h2>Queue family message</h2><p>Creates a simulated approved message. Valid seeded contacts: <strong>son</strong> and <strong>daughter</strong>.</p><select value={contactId} onChange={event => setContactId(event.target.value)}><option value="son">Rahim (son)</option><option value="daughter">Sara (daughter)</option></select><textarea value={familyMessage} onChange={event => setFamilyMessage(event.target.value)} required /><button>Queue simulated message</button></form>
+    <form className="admin-card" onSubmit={submit("/logistics/purchase-requests", { item_name: itemName, quantity, user_confirmed: true })}><h2>Household purchase</h2><p>Creates a confirmed, simulated household purchase request.</p><input value={itemName} onChange={event => setItemName(event.target.value)} required /><input type="number" min="1" value={quantity} onChange={event => setQuantity(Number(event.target.value))} required /><button>Request purchase</button></form>
+  </section></main>;
 }
+
+function Caregiver({ medications, alerts, refresh }: { medications: Medication[]; alerts: Alert[]; refresh: () => Promise<void> }) { return <section className="caregiver card"><div className="card-title"><div><h2>Caregiver dashboard</h2><p>Shared demo data only.</p></div><button onClick={() => void refresh()}>Refresh</button></div><div className="dashboard-grid"><section><h3>Medication schedules</h3>{medications.map(item => <p key={item.id}><strong>{item.medication_name}</strong><br />{item.daily_times.join(", ")}</p>)}</section><section><h3>Security events</h3>{alerts.length ? alerts.map(item => <p key={item.id}><strong className={`risk ${item.risk_level}`}>{item.risk_level}</strong> {item.details ?? "Security event"}</p>) : <p>No security events.</p>}</section><section><h3>Management</h3><p>Phone book, reminders, household inventory, and simulated communications are the next panels.</p></section></div></section>; }
