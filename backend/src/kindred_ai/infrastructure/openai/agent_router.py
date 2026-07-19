@@ -32,7 +32,9 @@ class OpenAIAgentRouter:
             model=self._model,
             instructions=(
                 "Classify the user's request for Kindred AI. Return only the requested schema. "
-                "Master handles general safety/cybersecurity advice without inspecting any stored messages. Guardian handles medication supply and medication replenishment. "
+                "Master handles general safety/cybersecurity advice without inspecting any stored messages. "
+                "Use Guardian's security_inbox intent only when the user explicitly asks to read, check, or list phone messages that were already received or stored in Kindred, including questions such as 'Do I have new messages?' or 'Read my phone messages'. "
+                "A general question such as whether it is safe to share a code stays with Master as general_safety_guidance. Guardian handles medication supply and medication replenishment. "
                 "Companion handles social conversation, memory, and requests to call an approved family member. "
                 "Use communication_call and extract contact_query for a call request. Logistics handles non-medication household stock, purchase requests, and reminders. "
                 "Use household_inventory, household_purchase, or household_reminder for those specific Logistics requests. "

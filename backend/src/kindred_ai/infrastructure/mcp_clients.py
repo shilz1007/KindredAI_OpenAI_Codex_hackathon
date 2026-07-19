@@ -40,6 +40,10 @@ class SecurityMcpClient:
         from kindred_ai.mcp.security.server import mcp
         return _call(mcp, "KINDRED_MCP_SECURITY_URL", "create_security_alert", {"event_id": event_id, "severity": severity})
 
+    def get_phone_messages(self, limit: int = 10) -> list[dict[str, Any]]:
+        from kindred_ai.mcp.security.server import mcp
+        return _call(mcp, "KINDRED_MCP_SECURITY_URL", "get_phone_messages", {"limit": limit})
+
 
 class HealthMcpClient:
     def get_medication_schedule(self) -> list[dict[str, Any]]:

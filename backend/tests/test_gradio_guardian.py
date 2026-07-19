@@ -93,3 +93,20 @@ class GradioGuardianTests(unittest.TestCase):
         master.clear_conversation("browser-1")
         master.respond("Fresh conversation", session_id="browser-1")
         self.assertNotIn("User: I feel lonely", model.contexts[3])
+
+    def test_master_reads_stored_phone_messages_only_for_security_inbox_route(self) -> None:
+        class FakeConversationModel:
+            def respond(self, *, instruction: str, user_message: str, specialist_context: str) -> str:
+                return specialist_context
+
+        class InboxRouter:
+            def route(self, message: str) -> AgentRoute:
+                return AgentRoute(agent="guardian", intent="security_inbox", language="en", medication_name=None, quantity=None)
+
+        class InboxGuardian:
+            def phone_messages(self, *, limit: int = 10) -> list[dict[str, str]]:
+                return [{"message": "Hi Anita, this is Sara. I will visit you on Sunday afternoon. Love you!", "risk_level": "low"}]
+
+        reply = MasterAgent(FakeConversationModel(), InboxGuardian(), InboxRouter()).respond("Do I have new messages?")
+        self.assertIn("Sara", reply)
+        self.assertIn("Sunday afternoon", reply)

@@ -81,6 +81,8 @@ class MasterAgent:
         return "No specialist workflow is available for this request."
 
     def _route_guardian(self, route: AgentRoute, message: str) -> str:
+        if route.intent == "security_inbox":
+            return f"Stored phone messages (newest first): {self._guardian.phone_messages()}"
         if route.intent == "medication_supply":
             return f"Medication supply: {self._guardian.medication_supply()}"
         if route.intent == "medication_replenishment":

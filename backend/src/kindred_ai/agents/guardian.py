@@ -33,9 +33,9 @@ class GuardianAgent:
     def medication_supply(self) -> list[dict[str, Any]]:
         """Calculate remaining medication days using schedule times and Inventory MCP stock."""
         results: list[dict[str, Any]] = []
-        inventory = {item["medication_name"]: item for item in self._inventory.check_inventory()}
+        inventory = {item["schedule_id"]: item for item in self._inventory.check_inventory() if item.get("schedule_id")}
         for schedule in self._health.get_medication_schedule():
-            item = inventory.get(schedule["medication_name"])
+            item = inventory.get(schedule["id"])
             daily_units = len(schedule["daily_times"])  # TODO: Use explicit per-dose quantities when Health MCP adds them.
             units_available = item["units_available"] if item else 0
             days_remaining = units_available // daily_units if daily_units else 0
@@ -48,6 +48,10 @@ class GuardianAgent:
                 "message": "Seven days or fewer of medicine remain; ask the user before ordering." if days_remaining <= 7 else None,
             })
         return results
+
+    def phone_messages(self, *, limit: int = 10) -> list[dict[str, Any]]:
+        """Read stored simulated phone messages without creating an event or alert."""
+        return self._security.get_phone_messages(limit=limit)
 
     def request_medication_replenishment(self, *, medication_name: str, quantity: int, user_confirmed: bool) -> dict[str, Any]:
         """Create a replenishment request only after explicit confirmation."""

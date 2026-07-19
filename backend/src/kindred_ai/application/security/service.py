@@ -39,13 +39,18 @@ class SecurityService:
         except Exception as error:
             self._repository.fail_phone_message(message_id=phone_message.id)
             raise RuntimeError("Phone-message analysis failed.") from error
-        event_id = None
-        alert = None
-        if classification.risk_level != "low":
-            event = self._repository.add_event(event_id=str(uuid4()), message=phone_message.message, risk_level=classification.risk_level, matched_signals=tuple(classification.signals), created_at=datetime.now(UTC))
-            event_id = event.id
-            alert = self.create_security_alert(event_id=event.id, severity=classification.risk_level)
-        return self._repository.complete_phone_message(message_id=phone_message.id, risk_level=classification.risk_level, explanation=classification.explanation, signals=tuple(classification.signals), event_id=event_id), alert
+        try:
+            event_id = None
+            alert = None
+            if classification.risk_level != "low":
+                event = self._repository.add_event(event_id=str(uuid4()), message=phone_message.message, risk_level=classification.risk_level, matched_signals=tuple(classification.signals), created_at=datetime.now(UTC))
+                event_id = event.id
+                alert = self.create_security_alert(event_id=event.id, severity=classification.risk_level)
+            completed_message = self._repository.complete_phone_message(message_id=phone_message.id, risk_level=classification.risk_level, explanation=classification.explanation, signals=tuple(classification.signals), event_id=event_id)
+        except Exception as error:
+            self._repository.fail_phone_message(message_id=phone_message.id)
+            raise RuntimeError("Phone-message analysis could not be stored.") from error
+        return completed_message, alert
 
     def get_phone_messages(self, *, limit: int) -> list[PhoneMessage]:
         if not 1 <= limit <= MAX_EVENT_LIMIT: raise ValueError(f"Event limit must be between 1 and {MAX_EVENT_LIMIT}.")

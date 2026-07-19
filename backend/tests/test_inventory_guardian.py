@@ -40,8 +40,10 @@ class InventoryGuardianTests(unittest.TestCase):
         self.assertEqual(200, inventory.status_code)
         self.assertEqual(200, supply.status_code)
         metformin = next(item for item in supply.json() if item["medication_name"] == "Metformin")
+        metformin_inventory = next(item for item in inventory.json() if item["medication_name"] == "Metformin")
         self.assertEqual(6, metformin["days_remaining"])
         self.assertTrue(metformin["refill_warning"])
+        self.assertEqual("demo-schedule-metformin", metformin_inventory["schedule_id"])
 
     def test_guardian_creates_alert_and_requires_order_confirmation(self) -> None:
         analysis = self.client.post("/api/v1/guardian/analyze", json={"message": "Urgent: send your gift card details."})

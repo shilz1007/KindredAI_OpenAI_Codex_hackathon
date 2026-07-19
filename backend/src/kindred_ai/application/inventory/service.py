@@ -19,6 +19,9 @@ class InventoryService:
     def get_item(self, medication_name: str) -> MedicationInventory | None:
         return self._repository.get_item(medication_name)
 
+    def get_item_for_schedule(self, schedule_id: str) -> MedicationInventory | None:
+        return self._repository.get_item_for_schedule(schedule_id)
+
     def request_purchase(self, *, medication_name: str, quantity: int, user_confirmed: bool) -> PurchaseRequest:
         if not user_confirmed:
             raise ValueError("User confirmation is required before requesting a medication purchase.")

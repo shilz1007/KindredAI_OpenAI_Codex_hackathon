@@ -10,9 +10,10 @@ class MedicationInventory:
     medication_name: str
     units_available: int
     last_purchased_at: datetime
+    schedule_id: str | None = None
 
-    def to_dict(self) -> dict[str, str | int]:
-        return {"id": self.id, "medication_name": self.medication_name, "units_available": self.units_available, "last_purchased_at": self.last_purchased_at.isoformat()}
+    def to_dict(self) -> dict[str, str | int | None]:
+        return {"id": self.id, "schedule_id": self.schedule_id, "medication_name": self.medication_name, "units_available": self.units_available, "last_purchased_at": self.last_purchased_at.isoformat()}
 
 
 @dataclass(frozen=True, slots=True)

@@ -4,6 +4,7 @@ import sqlite3
 import tempfile
 import unittest
 from contextlib import closing
+from datetime import UTC, datetime
 from pathlib import Path
 
 from kindred_ai.application.security.service import SecurityService
@@ -26,7 +27,7 @@ class SecurityMcpTests(unittest.TestCase):
         with closing(sqlite3.connect(self.database_path)) as connection:
             versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
             events = connection.execute("SELECT COUNT(*) FROM security_events").fetchone()[0]
-        self.assertEqual([("001_initial.sql",), ("002_phone_messages.sql",)], versions)
+        self.assertEqual([("001_initial.sql",), ("002_phone_messages.sql",), ("003_allow_critical_risk.sql",)], versions)
         self.assertEqual(2, events)
 
     def test_high_risk_message_records_signals(self) -> None:
@@ -55,6 +56,20 @@ class SecurityMcpTests(unittest.TestCase):
         self.service.analyze_message("A new message arrived.")
         events = self.service.get_security_events(limit=3)
         self.assertEqual("A new message arrived.", events[0].message)
+
+    def test_phone_messages_are_returned_newest_first(self) -> None:
+        first = self.repository.add_phone_message(message_id="first", message="First message", received_at=datetime.now(UTC))
+        second = self.repository.add_phone_message(message_id="second", message="Second message", received_at=datetime.now(UTC))
+        messages = self.service.get_phone_messages(limit=2)
+        self.assertEqual("Second message", messages[0].message)
+        self.assertEqual("First message", messages[1].message)
+
+    def test_critical_risk_events_are_supported(self) -> None:
+        event = self.repository.add_event(
+            event_id="critical-event", message="Critical test", risk_level="critical",
+            matched_signals=("test",), created_at=datetime.now(UTC),
+        )
+        self.assertEqual("critical", event.risk_level)
 
 
 if __name__ == "__main__":

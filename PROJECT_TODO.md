@@ -1,102 +1,76 @@
 # Kindred AI Project Progress
 
-Use `✅` for completed tasks and `⬜` for planned work. Update this file whenever a task is finished.
+Use `✅` for completed work and `⬜` for planned work. The prototype deliberately simulates calls, messages, orders, and notifications; it does not contact real people or services.
 
 ## Foundation
 
-- ✅ Define the clean backend package structure.
-- ✅ Document the high-level architecture and MCP ownership.
-- ✅ Create the startup-validated YAML agent catalog.
-- ✅ Add Swagger UI for development testing.
-- ✅ Add automated backend tests.
+- ✅ Define the clean backend package structure and high-level architecture.
+- ✅ Define and startup-validate the YAML agent catalog and MCP ownership mapping.
+- ✅ Add FastAPI/Swagger endpoints for development and judge testing.
+- ✅ Add automated backend tests for the implemented MCPs and agent workflows.
+- ✅ Add a React prototype UI with a demo login, Elder/Caregiver views, and a temporary chat experience.
+- ✅ Add a Judge/Admin sandbox for inserting simulated data through the real backend APIs.
 
-## Agent Catalog
+## Agents
 
-- ✅ Define Master, Companion, Guardian, and Logistics agents in `agents.yaml`.
-- ✅ Validate permitted MCP access at startup.
-- ✅ Allow Guardian access to Security, Health, and confirmed medication-replenishment Inventory workflows.
-- ⬜ Add Bengali agent instructions when language routing is implemented.
+- ✅ Master Agent: English LLM-backed routing, delegation, and bounded in-memory conversation context.
+- ✅ Guardian Agent: Security, Health, and medication-inventory workflows.
+- ✅ Companion Agent: Memory-backed personalised responses and approved simulated family communication.
+- ✅ Logistics Agent: Household-inventory workflows and persisted reminder orchestration.
+- ⬜ Add Bengali instructions and language routing.
+- ⬜ Persist multi-turn conversation state beyond the current in-memory prototype.
+- ⬜ Introduce production-grade agent authorization and policy enforcement.
 
-## Temporary Agent Test UI
+## MCPs and Persistence
 
-- ✅ Create a local Gradio development harness for Guardian Agent.
-- ✅ Document manual agent scenarios in `agents/TEST_SCENARIOS.md`.
-- ✅ Document the temporary-UI testing plan in the architecture.
-- ⬜ Add Companion, Logistics, and Master Agent views as those agents are implemented.
+### Memory MCP
 
-## Memory MCP
+- ✅ Isolated SQLite persistence, migrations, idempotent demo seed data, Swagger endpoints, and tests.
+- ✅ Profile retrieval, approved memory storage, and conversation-history retrieval.
+- ⬜ Add semantic/relevance-based retrieval.
 
-- ✅ Create isolated SQLite database, migrations, and demo seed data.
-- ✅ Implement user profile retrieval.
-- ✅ Implement memory storage.
-- ✅ Implement conversation-history retrieval.
-- ✅ Add Swagger testing endpoints and automated tests.
-- ✅ Add separate non-medication household inventory records and reorder signals for Logistics.
-- ⬜ Add semantic/relevance-based memory retrieval for Companion Agent.
+### Health MCP
 
-## Health MCP
+- ✅ Isolated SQLite persistence, migrations, idempotent demo seed data, Swagger endpoints, and tests.
+- ✅ Medication schedules, daily dose times, taken-dose records, and health-event retrieval.
+- ✅ Medication stock and seven-day replenishment-warning workflow through Guardian/Inventory.
+- ⬜ Add clinical validation, patient onboarding, and per-user timezone support.
 
-- ✅ Create isolated SQLite database, migrations, and demo seed data.
-- ✅ Store medication schedules and daily dose times.
-- ✅ Record medication-taken events.
-- ✅ Retrieve health events.
-- ✅ Add Swagger testing endpoints and automated tests.
-- ⬜ Add medication stock/dose-quantity data needed for inventory forecasting.
+### Security MCP
 
-## Security MCP
+- ✅ Simulated phone-message inbox stored separately from security events and alerts.
+- ✅ GPT-5.1 structured classification of stored phone messages; medium, high, and critical results create alerts.
+- ✅ Keep general fraud/cyber-safety questions with Master general intelligence rather than storing them as phone messages.
+- ✅ Swagger endpoints and automated tests for the inbox and alerts.
+- ⬜ Add a reviewed production safety policy, model evaluation set, and human escalation workflow.
 
-- ✅ Create isolated SQLite database, migrations, and demo seed data.
-- ✅ Analyze messages with deterministic prototype safety signals.
-- ✅ Create and retrieve security alerts/events.
-- ✅ Add Swagger testing endpoints and automated tests.
-- ⬜ Replace the prototype keyword rules with an approved safety policy/model integration.
+### Inventory MCP
 
-## Inventory MCP
+- ✅ Medication inventory: quantities, purchase dates, reorder status, confirmed replenishment requests, tests, and Swagger endpoints.
+- ✅ Separate household inventory and confirmed household purchase requests for Logistics.
+- ⬜ Add supplier/pharmacy integrations only after explicit authorization and safety controls are designed.
 
-- ✅ Create isolated SQLite database, migrations, and demo medication inventory.
-- ✅ Track medicine quantities, purchase dates, and reorder status.
-- ✅ Implement `check_inventory()`.
-- ✅ Implement confirmed `request_purchase()`.
-- ✅ Add Swagger testing endpoints and automated tests.
+### Communication MCP
 
-## Guardian Agent
+- ✅ Local SQLite phone book with seeded son/daughter contacts.
+- ✅ Simulated approved family-message queue and call-request records.
+- ✅ Companion Swagger endpoints for contacts, phone book, messages, and call requests.
+- ⬜ Add real message/call delivery only with consent, authentication, and an approved provider.
 
-- ✅ Implement Guardian Agent orchestration over Security, Health, and Inventory MCPs.
-- ✅ Analyze incoming messages and create alerts for medium/high-risk results.
-- ✅ Calculate medication days remaining from schedule and inventory data.
-- ✅ Return a refill warning when seven or fewer days remain.
-- ✅ Create a medication replenishment request only after explicit user confirmation.
-- ✅ Add Guardian Swagger endpoints and end-to-end tests.
+## Experience, Testing, and Observability
 
-## Companion Agent
+- ✅ Temporary Gradio harnesses for early Master/Guardian testing.
+- ✅ React UI for ongoing prototype testing, including a judge-facing Admin data-entry page.
+- ✅ OpenAI Responses integration for text conversation and a temporary Realtime WebSocket voice test.
+- ✅ Langfuse tracing for agent delegation, LLM generations, and MCP tool calls.
+- ✅ Document MCP tool ownership and JSON schemas in `MCP_TOOL_CATALOG.md`.
+- ⬜ Add continuous browser/WebRTC voice streaming to the production React UI.
+- ⬜ Add a polished frontend test dashboard to inspect inserted records, alerts, and queued actions.
+- ⬜ Add accessibility testing with target older users and caregivers.
 
-- ⬜ Implement personalized companionship responses using Memory MCP.
-- ⬜ Add language-aware English/Bengali response handling.
-- ⬜ Integrate approved family communication through Communication MCP.
-- ⬜ Add Companion Swagger endpoints and tests.
+## Production Readiness
 
-## Communication MCP
-
-- ⬜ Create isolated SQLite database and migrations.
-- ⬜ Implement family-message delivery workflow.
-- ⬜ Implement notification workflow.
-- ⬜ Add Swagger testing endpoints and automated tests.
-
-## Logistics Agent
-
-- ✅ Implement authorized household inventory workflows with explicit purchase confirmation.
-- ✅ Implement persisted local reminder orchestration.
-- ✅ Add Logistics Swagger endpoints and tests.
-- ⬜ Deliver due reminders through Communication MCP after a notification policy is defined.
-
-## Master Agent and Realtime Experience
-
-- ✅ Implement a model-backed Master Agent that routes Guardian workflows in the temporary Gradio UI.
-- ✅ Build FastMCP client adapters for Guardian's Security, Health, and Inventory access.
-- ✅ Extend English intent routing and delegation to Companion and Logistics Agents.
-- ✅ Add bounded, in-memory multi-turn context to the temporary Master text UI.
-- ⬜ Implement English/Bengali language routing.
-- ⬜ Integrate the OpenAI Agents SDK.
-- ✅ Integrate a push-to-talk OpenAI Realtime WebSocket voice session in the temporary Gradio UI.
-- ⬜ Add continuous WebRTC microphone streaming for the React Native production UI.
-- ⬜ Add authentication, authorization, audit logging, and production safety controls.
+- ⬜ Implement authentication, authorization, audit logs, and encrypted production data storage.
+- ⬜ Add rate limiting, input validation review, secret management, backups, and monitoring alerts.
+- ⬜ Add CI checks, deployment configuration, and a production database migration process.
+- ⬜ Complete end-to-end acceptance tests for all judge scenarios.

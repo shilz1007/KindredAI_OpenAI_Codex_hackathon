@@ -13,6 +13,7 @@ class AgentRoute(BaseModel):
     agent: Literal["master", "companion", "guardian", "logistics"]
     intent: Literal[
         "security_review",
+        "security_inbox",
         "medication_supply",
         "medication_replenishment",
         "general_companionship",

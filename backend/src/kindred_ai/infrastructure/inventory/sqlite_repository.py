@@ -42,19 +42,39 @@ class SqliteInventoryRepository:
             applied = {row["version"] for row in connection.execute("SELECT version FROM schema_migrations")}
             for migration in sorted(MIGRATIONS_PATH.glob("*.sql")):
                 if migration.name not in applied:
+                    if migration.name == "003_link_medication_inventory_to_schedule.sql":
+                        columns = {row["name"] for row in connection.execute("PRAGMA table_info(medication_inventory)")}
+                        if "schedule_id" not in columns:
+                            connection.execute("ALTER TABLE medication_inventory ADD COLUMN schedule_id TEXT")
                     connection.executescript(migration.read_text(encoding="utf-8"))
                     connection.execute("INSERT INTO schema_migrations VALUES (?, ?)", (migration.name, datetime.now(UTC).isoformat()))
-            for item in (("demo-inventory-metformin", "Metformin", 12, "2026-07-10T09:00:00+00:00"), ("demo-inventory-vitamin-d", "Vitamin D", 30, "2026-07-10T09:00:00+00:00")):
-                connection.execute("INSERT OR IGNORE INTO medication_inventory VALUES (?, ?, ?, ?)", item)
+            for item in (
+                ("demo-inventory-metformin", "demo-schedule-metformin", "Metformin", 12, "2026-07-10T09:00:00+00:00"),
+                ("demo-inventory-vitamin-d", "demo-schedule-vitamin-d", "Vitamin D", 30, "2026-07-10T09:00:00+00:00"),
+            ):
+                connection.execute(
+                    """INSERT OR IGNORE INTO medication_inventory
+                    (id, schedule_id, medication_name, units_available, last_purchased_at)
+                    VALUES (?, ?, ?, ?, ?)""",
+                    item,
+                )
 
     def get_inventory(self) -> list[MedicationInventory]:
         with self._connection() as connection:
-            rows = connection.execute("SELECT id, medication_name, units_available, last_purchased_at FROM medication_inventory ORDER BY medication_name").fetchall()
+            rows = connection.execute("SELECT id, schedule_id, medication_name, units_available, last_purchased_at FROM medication_inventory ORDER BY medication_name").fetchall()
         return [_item(row) for row in rows]
 
     def get_item(self, medication_name: str) -> MedicationInventory | None:
         with self._connection() as connection:
-            row = connection.execute("SELECT id, medication_name, units_available, last_purchased_at FROM medication_inventory WHERE medication_name = ?", (medication_name,)).fetchone()
+            row = connection.execute("SELECT id, schedule_id, medication_name, units_available, last_purchased_at FROM medication_inventory WHERE medication_name = ?", (medication_name,)).fetchone()
+        return _item(row) if row else None
+
+    def get_item_for_schedule(self, schedule_id: str) -> MedicationInventory | None:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT id, schedule_id, medication_name, units_available, last_purchased_at FROM medication_inventory WHERE schedule_id = ?",
+                (schedule_id,),
+            ).fetchone()
         return _item(row) if row else None
 
     def add_purchase_request(self, *, request_id: str, medication_name: str, quantity: int, created_at: datetime) -> PurchaseRequest:
@@ -87,7 +107,7 @@ class SqliteInventoryRepository:
 
 
 def _item(row: sqlite3.Row) -> MedicationInventory:
-    return MedicationInventory(row["id"], row["medication_name"], row["units_available"], datetime.fromisoformat(row["last_purchased_at"]))
+    return MedicationInventory(row["id"], row["medication_name"], row["units_available"], datetime.fromisoformat(row["last_purchased_at"]), row["schedule_id"])
 
 
 def _household_item(row: sqlite3.Row) -> HouseholdItem:

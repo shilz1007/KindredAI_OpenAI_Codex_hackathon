@@ -25,3 +25,9 @@ async def create_security_alert(event_id: str, severity: str = "medium") -> dict
 async def get_security_events(limit: int = 20) -> list[dict[str, Any]]:
     """Get recorded security events, newest first."""
     return [event.to_dict() for event in get_security_service().get_security_events(limit=limit)]
+
+
+@mcp.tool()
+async def get_phone_messages(limit: int = 20) -> list[dict[str, Any]]:
+    """Get simulated phone messages stored by Security MCP, newest first."""
+    return [message.to_dict() for message in get_security_service().get_phone_messages(limit=limit)]
