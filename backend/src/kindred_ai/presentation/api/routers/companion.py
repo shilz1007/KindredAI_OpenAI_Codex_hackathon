@@ -5,7 +5,7 @@ from kindred_ai.application.communication.service import get_communication_servi
 
 router=APIRouter(prefix="/companion", tags=["Companion Agent"])
 class Message(BaseModel): message:str
-class FamilyMessage(BaseModel): contact_id:str; content:str; user_approved:bool=False
+class ContactMessage(BaseModel): contact_id:str; content:str; user_approved:bool=False
 class CallRequest(BaseModel): contact_query:str
 class PhoneBookContact(BaseModel):
     display_name: str = Field(min_length=1, examples=["Name of the person"])
@@ -26,9 +26,9 @@ def add_phone_book_contact(payload: PhoneBookContact):
         raise HTTPException(status_code=422, detail=str(error))
 @router.post("/call-requests", status_code=201)
 def call(payload: CallRequest):
-    try: return get_companion_agent().request_family_call(payload.contact_query)
+    try: return get_companion_agent().request_contact_call(payload.contact_query)
     except ValueError as error: raise HTTPException(status_code=422,detail=str(error))
-@router.post("/family-messages")
-def send(payload:FamilyMessage):
+@router.post("/messages")
+def send(payload:ContactMessage):
     try: return get_companion_agent().send_approved_family_message(payload.contact_id,payload.content,payload.user_approved)
     except ValueError as error: raise HTTPException(status_code=422,detail=str(error))

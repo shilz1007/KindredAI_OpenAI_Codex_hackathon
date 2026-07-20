@@ -22,4 +22,5 @@ def get_guardian_agent() -> GuardianAgent:
     return GuardianAgent(
         SecurityMcpClient(), HealthMcpClient(), InventoryMcpClient(),
         conversation_model,
+        get_agent_registry().get("guardian").instruction,
     )

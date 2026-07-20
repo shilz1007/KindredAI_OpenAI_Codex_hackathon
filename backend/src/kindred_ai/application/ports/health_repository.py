@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Protocol
 
-from kindred_ai.domain.health import HealthEvent, MedicationSchedule, MedicationTakenRecord
+from kindred_ai.domain.health import HealthEvent, MedicationDoseStatusRecord, MedicationSchedule, MedicationTakenRecord
 
 
 class HealthRepository(Protocol):
@@ -33,5 +33,14 @@ class HealthRepository(Protocol):
         taken_at: datetime,
         note: str | None,
     ) -> MedicationTakenRecord: ...
+
+    def get_medication_taken_records(self, user_id: str) -> list[MedicationTakenRecord]: ...
+
+    def add_medication_dose_status_record(
+        self, *, record_id: str, user_id: str, schedule_id: str, scheduled_date: str,
+        scheduled_time: str, status: str, recorded_at: datetime, note: str | None,
+    ) -> MedicationDoseStatusRecord: ...
+
+    def get_medication_dose_status_records(self, user_id: str, scheduled_date: str) -> list[MedicationDoseStatusRecord]: ...
 
     def get_health_events(self, user_id: str) -> list[HealthEvent]: ...

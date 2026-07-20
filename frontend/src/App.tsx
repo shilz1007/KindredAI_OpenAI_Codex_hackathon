@@ -35,7 +35,6 @@ const sessionId = crypto.randomUUID();
 const DEMO_USERNAME = "anita";
 const DEMO_PASSWORD = "kindred-demo";
 const DEMO_SESSION_KEY = "kindred_demo_signed_in";
-const WELCOME_MESSAGE: ChatMessage = { role: "assistant", content: "Good morning, Anita. I am here whenever you need me." };
 const VOICE_PAUSE_MS = 2500;
 const DEFAULT_THOUGHT = "Every new day brings a small reason to smile.";
 
@@ -45,14 +44,36 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
   return response.status === 204 ? (undefined as T) : response.json() as Promise<T>;
 }
 
-function comfortingEnglishVoice(): SpeechSynthesisVoice | undefined {
-  const voices = window.speechSynthesis.getVoices();
-  const englishVoices = voices.filter(voice => /^en-(GB|US|AU|CA|NZ|IN)/i.test(voice.lang));
-  const femaleVoiceName = /sonia|libby|jenny|zira|hazel|samantha|serena|ava|aria|emma|olivia|female/i;
-  return englishVoices.find(voice => femaleVoiceName.test(voice.name))
-    ?? englishVoices.find(voice => /^en-GB/i.test(voice.lang))
-    ?? englishVoices.find(voice => /^en-US/i.test(voice.lang))
-    ?? englishVoices[0];
+let activeSpeechAudio: HTMLAudioElement | undefined;
+
+async function speakWithKindredVoice(text: string): Promise<void> {
+  // Do not use the browser's installed voices: their accent and gender vary by
+  // operating system. The backend always returns Kindred's configured voice.
+  activeSpeechAudio?.pause();
+  const response = await fetch(`${API}/master/speech`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!response.ok) throw new Error("Kindred could not prepare her voice response.");
+  const audioUrl = URL.createObjectURL(await response.blob());
+  const audio = new Audio(audioUrl);
+  activeSpeechAudio = audio;
+  audio.onended = () => URL.revokeObjectURL(audioUrl);
+  audio.onerror = () => URL.revokeObjectURL(audioUrl);
+  // Give the browser a fully buffered audio frame before playback. Starting an
+  // MP3 the moment it is assigned can clip the first syllable on some devices.
+  await new Promise<void>(resolve => {
+    if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+      resolve();
+      return;
+    }
+    audio.addEventListener("canplaythrough", () => resolve(), { once: true });
+    audio.load();
+    window.setTimeout(resolve, 1000);
+  });
+  await new Promise<void>(resolve => window.setTimeout(resolve, 150));
+  await audio.play();
 }
 
 const copy = {
@@ -71,7 +92,7 @@ export function App() {
   const [signedIn, setSignedIn] = useState(() => sessionStorage.getItem(DEMO_SESSION_KEY) === "true");
   const [screen, setScreen] = useState<"hub" | "admin">("hub");
   const [role, setRole] = useState<"elder" | "caregiver">("elder");
-  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -104,23 +125,13 @@ export function App() {
       .then(result => setDailyThought(result.thought))
       .catch(() => setDailyThought(DEFAULT_THOUGHT));
   }, [signedIn]);
-
   const sendMessage = async (rawMessage: string, speakReply = false) => {
     const message = rawMessage.trim(); if (!message || loading) return;
     setMessages(items => [...items, { role: "user", content: message }]); setDraft(""); setLoading(true); setNotice("");
     try {
       const result = await api<{ reply: string }>(`/master/conversations/${sessionId}/turns`, { method: "POST", body: JSON.stringify({ message }) });
       setMessages(items => [...items, { role: "assistant", content: result.reply }]); await refresh();
-      if (speakReply && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(result.reply);
-        const voice = comfortingEnglishVoice();
-        utterance.voice = voice ?? null;
-        utterance.lang = voice?.lang || "en-GB";
-        utterance.rate = 0.92;
-        utterance.pitch = 1.05;
-        window.speechSynthesis.speak(utterance);
-      }
+      if (speakReply) await speakWithKindredVoice(result.reply);
     } catch (reason) { setNotice(reason instanceof Error ? reason.message : "Unable to reach Kindred."); }
     finally { setLoading(false); setVoiceStatus("idle"); }
   };
@@ -186,8 +197,8 @@ export function App() {
 
   const logout = () => {
     sessionStorage.removeItem(DEMO_SESSION_KEY);
-    window.speechSynthesis?.cancel();
-    setMessages([WELCOME_MESSAGE]);
+    activeSpeechAudio?.pause();
+    setMessages([]);
     setDraft("");
     setNotice("");
     setVoiceStatus("idle");
@@ -320,6 +331,7 @@ function Admin({ onBack, onLogout }: { onBack: () => void; onLogout: () => void 
   const [status, setStatus] = useState("Ready to update Anita's care records.");
   const [message, setMessage] = useState("Urgent: your bank account is blocked. Send the verification code now.");
   const [memory, setMemory] = useState("Anita enjoys morning tea in the garden.");
+  const [memoryCategory, setMemoryCategory] = useState("preference");
   const [reminder, setReminder] = useState("Buy tea leaves");
   const [availableSchedules, setAvailableSchedules] = useState<Medication[]>([]);
   const [familyContacts, setFamilyContacts] = useState<PhoneBookContact[]>([]);
@@ -432,7 +444,7 @@ function Admin({ onBack, onLogout }: { onBack: () => void; onLogout: () => void 
     <form className="admin-card medication-setup" onSubmit={saveMedicationStock}><h2>Medicine supply</h2><p>Use the medicine plan ID returned above, then add the tablets or capsules currently available.</p><input value={stockScheduleId} onChange={event => setStockScheduleId(event.target.value)} required placeholder="Medicine plan ID" /><input value={stockMedicationName} onChange={event => setStockMedicationName(event.target.value)} required placeholder="Medicine name, e.g. Metformin" /><input type="number" min="0" value={stockUnits} onChange={event => setStockUnits(event.target.value)} required placeholder="Tablets or capsules available" /><input type="date" value={stockPurchaseDate} onChange={event => setStockPurchaseDate(event.target.value)} required /><button>Save medicine supply</button></form>
     <form className="admin-card" onSubmit={addPhoneBookContact}><h2>Trusted contacts</h2><p>Add a family member or trusted person for simulated calls and approved family messages.</p><input value={contactName} onChange={event => setContactName(event.target.value)} required placeholder="Name of the person" /><input value={contactRelationship} onChange={event => setContactRelationship(event.target.value)} required placeholder="Relationship, e.g. son" /><input type="tel" value={contactPhoneNumber} onChange={event => setContactPhoneNumber(event.target.value)} required placeholder="Phone number, e.g. +4790000000" /><label><input type="checkbox" checked={contactApproved} onChange={event => setContactApproved(event.target.checked)} /> Approved for simulated calls</label><button>Save trusted contact</button></form>
     <form className="admin-card safety" onSubmit={submit("/security/phone-messages", { message }, () => setMessage(""))}><h2>Review a phone message</h2><p>Add a simulated incoming SMS for Guardian to review and classify.</p><textarea value={message} onChange={event => setMessage(event.target.value)} required placeholder="Type an incoming phone message" /><button>Save phone message</button></form>
-    <form className="admin-card" onSubmit={submit("/memory/memories", { content: memory, category: "preference", source: "family-admin", importance: 3 }, () => setMemory(""))}><h2>Personal details</h2><p>Add an approved personal preference or fact for Companion to remember.</p><textarea value={memory} onChange={event => setMemory(event.target.value)} required placeholder="Type a personal detail or preference" /><button>Save personal detail</button></form>
+    <form className="admin-card" onSubmit={submit("/memory/memories", { content: memory, category: memoryCategory, source: "family-admin", importance: 3 }, () => setMemory(""))}><h2>Personal details</h2><p>Add a preference, a personal date, or a special day for Kindred's daily greeting. Include the date in words, for example: “My son's birthday is on 20 July.”</p><select value={memoryCategory} onChange={event => setMemoryCategory(event.target.value)}><option value="preference">Personal preference</option><option value="important_date">Important personal date</option><option value="special_day">Special day</option></select><textarea value={memory} onChange={event => setMemory(event.target.value)} required placeholder="Type a personal detail or dated event" /><button>Save personal detail</button></form>
     <form className="admin-card" onSubmit={submit("/logistics/reminders", { title: reminder, remind_at: "2026-07-26T09:00:00+02:00" }, () => setReminder(""))}><h2>Household reminder</h2><p>Create a local reminder for a household task.</p><input value={reminder} onChange={event => setReminder(event.target.value)} required placeholder="Reminder title" /><button>Save reminder</button></form>
     <form className="admin-card" onSubmit={saveTakenDose}><h2>Record a taken dose</h2><p>Select the medicine plan and optionally add a note. The current time is recorded automatically.</p><select value={doseScheduleId} onChange={event => setDoseScheduleId(event.target.value)} required><option value="">Choose a medicine plan</option>{availableSchedules.map(schedule => <option key={schedule.id} value={schedule.id}>{schedule.medication_name} · {schedule.daily_times.join(", ")}</option>)}</select><input value={doseNote} onChange={event => setDoseNote(event.target.value)} placeholder="Optional note, e.g. taken after breakfast" /><button>Save taken dose</button></form>
     <form className="admin-card" onSubmit={saveFamilyMessage}><h2>Family message</h2><p>Choose a trusted contact, write the message, and explicitly approve it before recording.</p><select value={messageContactId} onChange={event => setMessageContactId(event.target.value)} required><option value="">Choose a trusted contact</option>{familyContacts.map(person => <option key={person.id} value={person.id}>{person.display_name} ({person.relationship})</option>)}</select><textarea value={familyMessage} onChange={event => setFamilyMessage(event.target.value)} required placeholder="Write the message for the family member" /><label><input type="checkbox" checked={messageApproved} onChange={event => setMessageApproved(event.target.checked)} /> I approve this simulated message</label><button>Record family message</button></form>

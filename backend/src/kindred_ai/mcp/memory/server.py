@@ -33,3 +33,9 @@ async def save_memory(
 async def retrieve_history(limit: int = 10) -> list[dict[str, Any]]:
     """Retrieve the most recent demo-user conversation history."""
     return [entry.to_dict() for entry in get_memory_service().retrieve_history(limit=limit)]
+
+
+@mcp.tool()
+async def retrieve_memories(category: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+    """Retrieve approved saved facts, optionally limited to one category."""
+    return [memory.to_dict() for memory in get_memory_service().retrieve_memories(category=category, limit=limit)]

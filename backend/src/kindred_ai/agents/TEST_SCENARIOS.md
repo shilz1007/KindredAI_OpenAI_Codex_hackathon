@@ -1,6 +1,6 @@
 # Temporary UI Agent Test Scenarios
 
-Use the temporary Gradio interface while building each agent. It is a development harness only and does not replace the future React Native/WebRTC interface.
+Use the React Care Hub while building each agent. Swagger remains available for direct API and data testing.
 
 ## Master Agent → Guardian Agent — available now
 
@@ -41,5 +41,5 @@ Use the temporary Gradio interface while building each agent. It is a developmen
 - Ask: "What do you remember about me?" Expect a warm response grounded in Anita's Memory MCP profile/history.
 - Ask: "I feel lonely today." Expect Companion to respond warmly without accessing Health or Security data.
 - In Swagger, call `GET /api/v1/companion/contacts`; expect the fictional approved family contacts.
-- In Swagger, call `POST /api/v1/companion/family-messages` with `user_approved: false`; expect rejection.
+- In Swagger, call `POST /api/v1/companion/messages` with `user_approved: false`; expect rejection.
 - Repeat with `user_approved: true`; expect a locally `queued` message only—no real external delivery.

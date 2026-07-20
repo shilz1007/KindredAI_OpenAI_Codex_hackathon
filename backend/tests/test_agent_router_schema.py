@@ -10,6 +10,8 @@ class AgentRouterSchemaTests(unittest.TestCase):
         schema = _strict_route_schema()
         self.assertEqual(set(schema["properties"]), set(schema["required"]))
         self.assertNotIn("default", schema["properties"]["household_item_name"])
+        self.assertIn("contact_display_name", schema["properties"])
+        self.assertIn("contact_phone_number", schema["properties"])
 
 
 if __name__ == "__main__":

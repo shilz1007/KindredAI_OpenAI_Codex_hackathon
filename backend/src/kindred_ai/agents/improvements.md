@@ -4,7 +4,7 @@
 
 This document describes improvements to move Kindred AI from a deterministic workflow system into a true multi-agent AI architecture.
 
-The current implementation uses Gradio as a temporary voice interface. Gradio will later be replaced by a production voice interface using React Native + WebRTC.
+The React Care Hub is the current prototype voice interface. A production deployment may later use a dedicated WebRTC voice interface.
 
 ---
 
@@ -15,7 +15,7 @@ The current implementation uses Gradio as a temporary voice interface. Gradio wi
 Current flow:
 
 User Voice
-→ Gradio
+→ React Care Hub
 → Realtime API Adapter
 → Master Agent
 → Pattern Matching Rules
@@ -55,7 +55,7 @@ User
 
 Voice Interface
 
-(Current: Gradio)
+(Current: React Care Hub)
 (Future: React Native + WebRTC)
 
 ↓

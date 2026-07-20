@@ -45,6 +45,12 @@ class MemoryService:
             raise ValueError(f"History limit must be between 1 and {MAX_HISTORY_LIMIT}.")
         return self._repository.get_history(DEMO_USER_ID, limit)
 
+    def retrieve_memories(self, *, category: str | None = None, limit: int = 50) -> list[MemoryItem]:
+        """Return saved personal facts for a bounded, approved read path."""
+        if not 1 <= limit <= MAX_HISTORY_LIMIT:
+            raise ValueError(f"Memory limit must be between 1 and {MAX_HISTORY_LIMIT}.")
+        return self._repository.get_memories(DEMO_USER_ID, category=category.strip() if category else None, limit=limit)
+
 
 @lru_cache(maxsize=1)
 def get_memory_service() -> MemoryService:

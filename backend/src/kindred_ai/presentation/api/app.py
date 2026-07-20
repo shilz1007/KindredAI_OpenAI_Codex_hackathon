@@ -10,6 +10,7 @@ from kindred_ai.application.inventory.service import initialize_inventory_servic
 from kindred_ai.application.memory.service import initialize_memory_service
 from kindred_ai.application.security.service import initialize_security_service
 from kindred_ai.application.communication.service import get_communication_service
+from kindred_ai.application.research import initialize_research_service
 from kindred_ai.config.agent_registry import initialize_agent_registry
 from kindred_ai.presentation.api.routers.health import router as health_router
 from kindred_ai.presentation.api.routers.guardian import router as guardian_router
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
     initialize_inventory_service()
     initialize_memory_service()
     initialize_security_service()
+    initialize_research_service()
     get_communication_service()
     app = FastAPI(title="Kindred AI Backend")
     allowed_origins = os.getenv("KINDRED_CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")

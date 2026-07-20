@@ -67,11 +67,11 @@ class CommunicationService:
             c.commit()
         return {"id": contact_id, "display_name": name, "relationship": relation, "phone_number": phone, "approved_for_calls": approved_for_calls}
 
-    def request_family_call(self, contact_query: str):
-        """Record a requested call. TODO: integrate an approved telephony provider."""
+    def request_contact_call(self, contact_query: str):
+        """Record a requested call for any approved phone-book contact; never place a real call."""
         clean_query = contact_query.strip()
         if not clean_query:
-            raise ValueError("A family contact name or relationship is required.")
+            raise ValueError("A phone-book contact name or relationship is required.")
         with closing(sqlite3.connect(self.path)) as c:
             matches = c.execute(
                 "SELECT id, display_name, relationship, phone_number FROM phone_book_contacts "
@@ -89,15 +89,23 @@ class CommunicationService:
             c.execute("INSERT INTO call_requests VALUES (:id, :contact_id, :status, :created_at)", request)
             c.commit()
         return {**request, "display_name": contact[1], "relationship": contact[2], "phone_number": contact[3]}
-    def send_family_message(self, contact_id: str, content: str, approved: bool):
-        if not approved: raise ValueError("Explicit user approval is required before sending a family message.")
+    def send_contact_message(self, contact_id: str, content: str, approved: bool):
+        """Queue an approved simulated message for any saved phone-book contact."""
+        if not approved: raise ValueError("Explicit user approval is required before sending a message.")
         if not content.strip(): raise ValueError("Message content cannot be empty.")
         with closing(sqlite3.connect(self.path)) as c:
-            if not c.execute("SELECT 1 FROM family_contacts WHERE id=?", (contact_id,)).fetchone(): raise ValueError("Family contact was not found.")
+            if not c.execute("SELECT 1 FROM phone_book_contacts WHERE id=?", (contact_id,)).fetchone(): raise ValueError("Phone book contact was not found.")
             result={"id":str(uuid4()),"contact_id":contact_id,"content":content.strip(),"status":"queued","created_at":datetime.now(UTC).isoformat()}
             c.execute("INSERT INTO communication_messages VALUES (:id,:contact_id,:content,:status,:created_at)",result)
             c.commit()
         return result
+
+    # Compatibility aliases preserve existing local demo records and endpoint clients.
+    def request_family_call(self, contact_query: str):
+        return self.request_contact_call(contact_query)
+
+    def send_family_message(self, contact_id: str, content: str, approved: bool):
+        return self.send_contact_message(contact_id, content, approved)
 
 _service=None
 def get_communication_service():

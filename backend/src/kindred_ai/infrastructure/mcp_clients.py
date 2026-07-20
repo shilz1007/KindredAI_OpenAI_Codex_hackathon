@@ -50,6 +50,24 @@ class HealthMcpClient:
         from kindred_ai.mcp.health.server import mcp
         return _call(mcp, "KINDRED_MCP_HEALTH_URL", "get_medication_schedule", {})
 
+    def record_medication_taken(self, schedule_id: str, note: str | None = None) -> dict[str, Any]:
+        from kindred_ai.mcp.health.server import mcp
+        return _call(mcp, "KINDRED_MCP_HEALTH_URL", "record_medication_taken", {"schedule_id": schedule_id, "note": note})
+
+    def get_medication_status_today(self) -> list[dict[str, Any]]:
+        from kindred_ai.mcp.health.server import mcp
+        return _call(mcp, "KINDRED_MCP_HEALTH_URL", "get_medication_status_today", {})
+
+    def record_medication_missed(self, schedule_id: str, scheduled_time: str, note: str | None = None) -> dict[str, Any]:
+        from kindred_ai.mcp.health.server import mcp
+        return _call(mcp, "KINDRED_MCP_HEALTH_URL", "record_medication_missed", {
+            "schedule_id": schedule_id, "scheduled_time": scheduled_time, "note": note,
+        })
+
+    def get_missed_medication_doses_today(self) -> list[dict[str, Any]]:
+        from kindred_ai.mcp.health.server import mcp
+        return _call(mcp, "KINDRED_MCP_HEALTH_URL", "get_missed_medication_doses_today", {})
+
 
 class InventoryMcpClient:
     def check_inventory(self) -> list[dict[str, Any]]:
@@ -83,20 +101,23 @@ class MemoryMcpClient:
     def retrieve_history(self, limit: int = 5):
         from kindred_ai.mcp.memory.server import mcp
         return _call(mcp, "KINDRED_MCP_MEMORY_URL", "retrieve_history", {"limit": limit})
+    def retrieve_memories(self, category: str | None = None, limit: int = 50):
+        from kindred_ai.mcp.memory.server import mcp
+        return _call(mcp, "KINDRED_MCP_MEMORY_URL", "retrieve_memories", {"category": category, "limit": limit})
 
 class CommunicationMcpClient:
     def get_family_contacts(self):
         from kindred_ai.mcp.communication.server import mcp
         return _call(mcp, "KINDRED_MCP_COMMUNICATION_URL", "get_family_contacts", {})
-    def send_family_message(self, contact_id: str, content: str, user_approved: bool):
+    def send_contact_message(self, contact_id: str, content: str, user_approved: bool):
         from kindred_ai.mcp.communication.server import mcp
-        return _call(mcp, "KINDRED_MCP_COMMUNICATION_URL", "send_family_message", {"contact_id":contact_id,"content":content,"user_approved":user_approved})
+        return _call(mcp, "KINDRED_MCP_COMMUNICATION_URL", "send_contact_message", {"contact_id":contact_id,"content":content,"user_approved":user_approved})
     def get_phone_book(self):
         from kindred_ai.mcp.communication.server import mcp
         return _call(mcp, "KINDRED_MCP_COMMUNICATION_URL", "get_phone_book", {})
     def add_phone_book_contact(self, display_name: str, relationship: str, phone_number: str, approved_for_calls: bool = True):
         from kindred_ai.mcp.communication.server import mcp
         return _call(mcp, "KINDRED_MCP_COMMUNICATION_URL", "add_phone_book_contact", {"display_name": display_name, "relationship": relationship, "phone_number": phone_number, "approved_for_calls": approved_for_calls})
-    def request_family_call(self, contact_query: str):
+    def request_contact_call(self, contact_query: str):
         from kindred_ai.mcp.communication.server import mcp
-        return _call(mcp, "KINDRED_MCP_COMMUNICATION_URL", "request_family_call", {"contact_query": contact_query})
+        return _call(mcp, "KINDRED_MCP_COMMUNICATION_URL", "request_contact_call", {"contact_query": contact_query})

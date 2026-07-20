@@ -7,9 +7,9 @@ mcp = FastMCP("Communication MCP")
 
 
 @mcp.tool()
-async def send_family_message(contact_id: str, content: str, user_approved: bool) -> dict:
-    """Queue an explicitly approved family message; no external delivery occurs."""
-    return get_communication_service().send_family_message(contact_id, content, user_approved)
+async def send_contact_message(contact_id: str, content: str, user_approved: bool) -> dict:
+    """Queue an approved message for any saved phone-book contact; no external delivery occurs."""
+    return get_communication_service().send_contact_message(contact_id, content, user_approved)
 
 @mcp.tool()
 async def get_family_contacts() -> list[dict]:
@@ -36,9 +36,9 @@ async def add_phone_book_contact(
 
 
 @mcp.tool()
-async def request_family_call(contact_query: str) -> dict:
-    """Record a requested call; this prototype never starts a real phone call."""
-    return get_communication_service().request_family_call(contact_query)
+async def request_contact_call(contact_query: str) -> dict:
+    """Record a requested call to a saved phone-book contact; no real call is placed."""
+    return get_communication_service().request_contact_call(contact_query)
 
 
 @mcp.tool()

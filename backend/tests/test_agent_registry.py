@@ -35,6 +35,18 @@ agents:
     capabilities: [Test]
     allowed_mcp_servers: []
     instruction: Test
+  - id: research
+    display_name: Research
+    purpose: Test
+    capabilities: [Test]
+    allowed_mcp_servers: [tavily]
+    instruction: Test
+  - id: router
+    display_name: Router
+    purpose: Test
+    capabilities: [Test]
+    allowed_mcp_servers: []
+    instruction: Test
   - id: master
     display_name: Master duplicate
     purpose: Test
@@ -54,6 +66,18 @@ agents:
     purpose: Test
     capabilities: [Test]
     allowed_mcp_servers: [unrecognized]
+    instruction: Test
+  - id: research
+    display_name: Research
+    purpose: Test
+    capabilities: [Test]
+    allowed_mcp_servers: [tavily]
+    instruction: Test
+  - id: router
+    display_name: Router
+    purpose: Test
+    capabilities: [Test]
+    allowed_mcp_servers: []
     instruction: Test
   - id: companion
     display_name: Companion
@@ -91,6 +115,8 @@ agents:
             application = create_app()
             self.assertEqual("Kindred AI Backend", application.title)
             self.assertEqual("Guardian Agent", get_agent_registry().get("guardian").display_name)
+            self.assertEqual("Router Agent", get_agent_registry().get("router").display_name)
+            self.assertEqual("Research Agent", get_agent_registry().get("research").display_name)
         finally:
             Path(catalog_path).unlink(missing_ok=True)
 

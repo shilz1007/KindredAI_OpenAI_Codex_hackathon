@@ -163,7 +163,7 @@ This is the manual end-to-end test plan for judges and developers. It tests the 
 | ID | Scenario | Steps | Expected | Evidence |
 | --- | --- | --- | --- | --- |
 | I-01 | Voice canvas affordance | Select **Tap to talk** in React UI. | UI guides the user to the text conversation and accurately explains that React WebRTC streaming is not yet live. | React UI. |
-| I-02 | Temporary realtime test | Run the existing Gradio realtime harness with a valid Realtime model configuration. | Push-to-talk test connects and responds; it can consult Master specialist context. | Gradio UI and terminal. |
+| I-02 | Realtime voice test | Run the React Care Hub with a valid Realtime model configuration. | Push-to-talk test connects and responds; it can consult Master specialist context. | React Care Hub and terminal. |
 | I-03 | Agent trace | Make a medication-supply query with Langfuse configured. | A trace shows Master conversation, router generation, Guardian delegation, and MCP tool calls. | Langfuse dashboard. |
 | I-04 | No secret leakage | Inspect UI errors, terminal logs, Langfuse input/output, and repository status after a test. | API keys, passwords, and raw sensitive tokens are not exposed. | Browser/terminal/Langfuse/Git diff. |
 | I-05 | Automated regression suite | Run backend tests. | All current automated tests pass. | `python -m unittest discover -s backend/tests -v`. |

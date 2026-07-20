@@ -28,7 +28,7 @@ class HealthMcpTests(unittest.TestCase):
             tables = connection.execute(
                 "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'medication_schedules'"
             ).fetchall()
-        self.assertEqual([("001_initial.sql",), ("002_rename_demo_user.sql",)], versions)
+        self.assertEqual([("001_initial.sql",), ("002_rename_demo_user.sql",), ("003_medication_dose_status.sql",)], versions)
         self.assertEqual([("medication_schedules",)], tables)
 
     def test_seed_is_idempotent(self) -> None:
@@ -58,6 +58,21 @@ class HealthMcpTests(unittest.TestCase):
                 "SELECT schedule_id, note FROM medication_taken_records WHERE id = ?", (record.id,)
             ).fetchone()
         self.assertEqual(("demo-schedule-metformin", "Taken after breakfast"), stored)
+
+    def test_today_taken_records_are_available_for_status_checks(self) -> None:
+        self.service.record_medication_taken(
+            schedule_id="demo-schedule-metformin", taken_at=datetime.now(UTC), note=None,
+        )
+        records = self.service.get_medication_taken_records_for_today()
+        self.assertTrue(any(record.schedule_id == "demo-schedule-metformin" for record in records))
+
+    def test_missed_scheduled_dose_is_persisted_for_today(self) -> None:
+        missed = self.service.record_medication_missed(
+            schedule_id="demo-schedule-metformin", scheduled_time="08:00",
+        )
+        statuses = self.service.get_medication_dose_status_records_for_today()
+        self.assertEqual("missed", missed.status)
+        self.assertTrue(any(record.id == missed.id and record.scheduled_time == "08:00" for record in statuses))
 
     def test_create_medication_schedule_persists_normalized_daily_times(self) -> None:
         schedule = self.service.create_medication_schedule(

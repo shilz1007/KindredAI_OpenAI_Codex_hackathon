@@ -1,12 +1,13 @@
 """Use cases for the Health MCP demo-user MVP."""
 
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 from functools import lru_cache
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from kindred_ai.application.ports.health_repository import HealthRepository
-from kindred_ai.domain.health import HealthEvent, MedicationSchedule, MedicationTakenRecord
+from kindred_ai.domain.health import HealthEvent, MedicationDoseStatusRecord, MedicationSchedule, MedicationTakenRecord
 from kindred_ai.infrastructure.health.sqlite_repository import SqliteHealthRepository
 
 DEMO_USER_ID = "demo-user"
@@ -74,6 +75,34 @@ class HealthService:
             taken_at=timestamp,
             note=note,
         )
+
+    def get_medication_taken_records_for_today(self) -> list[MedicationTakenRecord]:
+        """Read today's records in the demo user's local Oslo day."""
+        oslo = ZoneInfo("Europe/Oslo")
+        today = datetime.now(oslo).date()
+        return [
+            record for record in self._repository.get_medication_taken_records(DEMO_USER_ID)
+            if record.taken_at.astimezone(oslo).date() == today
+        ]
+
+    def record_medication_missed(self, *, schedule_id: str, scheduled_time: str, note: str | None = None) -> MedicationDoseStatusRecord:
+        """Persist a user's report that one named scheduled dose was missed."""
+        schedule = self._repository.get_active_schedule(DEMO_USER_ID, schedule_id)
+        if schedule is None:
+            raise ValueError("Unknown or inactive medication schedule.")
+        if scheduled_time not in schedule.daily_times:
+            raise ValueError("That time is not scheduled for this medication.")
+        oslo_now = datetime.now(ZoneInfo("Europe/Oslo"))
+        return self._repository.add_medication_dose_status_record(
+            record_id=str(uuid4()), user_id=DEMO_USER_ID, schedule_id=schedule_id,
+            scheduled_date=oslo_now.date().isoformat(), scheduled_time=scheduled_time,
+            status="missed", recorded_at=oslo_now, note=note,
+        )
+
+    def get_medication_dose_status_records_for_today(self) -> list[MedicationDoseStatusRecord]:
+        """Read explicitly reported missed doses for the current Oslo day."""
+        today = datetime.now(ZoneInfo("Europe/Oslo")).date().isoformat()
+        return self._repository.get_medication_dose_status_records(DEMO_USER_ID, today)
 
     def get_health_events(self) -> list[HealthEvent]:
         """Return demo-user health events in descending occurrence order."""

@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator
 
-from kindred_ai.domain.health import HealthEvent, MedicationSchedule, MedicationTakenRecord
+from kindred_ai.domain.health import HealthEvent, MedicationDoseStatusRecord, MedicationSchedule, MedicationTakenRecord
 
 DEFAULT_DATABASE_PATH = Path(__file__).resolve().parents[4] / "data" / "health.sqlite3"
 MIGRATIONS_PATH = Path(__file__).with_name("migrations")
@@ -180,6 +180,52 @@ class SqliteHealthRepository:
                 (record_id, user_id, schedule_id, timestamp, note),
             )
         return MedicationTakenRecord(record_id, schedule_id, _parse_timestamp(timestamp), note)
+
+    def get_medication_taken_records(self, user_id: str) -> list[MedicationTakenRecord]:
+        """Return persisted taken-dose records, newest first, for status calculations."""
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT id, schedule_id, taken_at, note
+                   FROM medication_taken_records WHERE user_id = ?
+                   ORDER BY taken_at DESC, id DESC""",
+                (user_id,),
+            ).fetchall()
+        return [
+            MedicationTakenRecord(row["id"], row["schedule_id"], _parse_timestamp(row["taken_at"]), row["note"])
+            for row in rows
+        ]
+
+    def add_medication_dose_status_record(
+        self, *, record_id: str, user_id: str, schedule_id: str, scheduled_date: str,
+        scheduled_time: str, status: str, recorded_at: datetime, note: str | None,
+    ) -> MedicationDoseStatusRecord:
+        timestamp = _timestamp_text(recorded_at)
+        with self._connection() as connection:
+            connection.execute(
+                """INSERT INTO medication_dose_status_records
+                   (id, user_id, schedule_id, scheduled_date, scheduled_time, status, recorded_at, note)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(user_id, schedule_id, scheduled_date, scheduled_time)
+                   DO UPDATE SET status = excluded.status, recorded_at = excluded.recorded_at, note = excluded.note""",
+                (record_id, user_id, schedule_id, scheduled_date, scheduled_time, status, timestamp, note),
+            )
+        return MedicationDoseStatusRecord(record_id, schedule_id, scheduled_date, scheduled_time, status, _parse_timestamp(timestamp), note)
+
+    def get_medication_dose_status_records(self, user_id: str, scheduled_date: str) -> list[MedicationDoseStatusRecord]:
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT id, schedule_id, scheduled_date, scheduled_time, status, recorded_at, note
+                   FROM medication_dose_status_records
+                   WHERE user_id = ? AND scheduled_date = ?
+                   ORDER BY scheduled_time, id""",
+                (user_id, scheduled_date),
+            ).fetchall()
+        return [
+            MedicationDoseStatusRecord(
+                row["id"], row["schedule_id"], row["scheduled_date"], row["scheduled_time"],
+                row["status"], _parse_timestamp(row["recorded_at"]), row["note"],
+            ) for row in rows
+        ]
 
     def get_health_events(self, user_id: str) -> list[HealthEvent]:
         """Retrieve events in newest-first occurrence order."""

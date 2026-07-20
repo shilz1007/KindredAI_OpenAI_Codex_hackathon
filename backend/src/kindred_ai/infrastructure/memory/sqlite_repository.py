@@ -119,6 +119,25 @@ class SqliteMemoryRepository:
             ).fetchall()
         return [ConversationEntry(row["id"], row["speaker"], row["content"], _parse_timestamp(row["occurred_at"])) for row in rows]
 
+    def get_memories(self, user_id: str, *, category: str | None, limit: int) -> list[MemoryItem]:
+        with self._connection() as connection:
+            if category:
+                rows = connection.execute(
+                    """SELECT id, content, category, source, importance, created_at FROM memories
+                    WHERE user_id = ? AND category = ? ORDER BY importance DESC, created_at DESC LIMIT ?""",
+                    (user_id, category, limit),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """SELECT id, content, category, source, importance, created_at FROM memories
+                    WHERE user_id = ? ORDER BY importance DESC, created_at DESC LIMIT ?""",
+                    (user_id, limit),
+                ).fetchall()
+        return [
+            MemoryItem(row["id"], row["content"], row["category"], row["source"], row["importance"], _parse_timestamp(row["created_at"]))
+            for row in rows
+        ]
+
 
 def _timestamp_text(value: datetime) -> str:
     return value.astimezone(UTC).isoformat() if value.tzinfo else value.replace(tzinfo=UTC).isoformat()

@@ -14,6 +14,8 @@ class ModelSettings:
     api_key: str
     master_model: str
     agents_model: str
+    speech_model: str
+    speech_voice: str
 
 
 def get_model_settings() -> ModelSettings:
@@ -25,4 +27,15 @@ def get_model_settings() -> ModelSettings:
     missing = [name for name, value in (("OPENAI_API_KEY", api_key), ("OPENAI_MODEL_MASTER", master_model), ("OPENAI_MODEL_AGENTS", agents_model)) if not value]
     if missing:
         raise RuntimeError(f"Missing required local model configuration: {', '.join(missing)}.")
-    return ModelSettings(api_key=api_key, master_model=master_model, agents_model=agents_model)
+    # These have safe, stable defaults for the Care Hub.  They remain
+    # configurable so a deployment can deliberately choose another approved
+    # voice without changing application code.
+    speech_model = os.getenv("OPENAI_SPEECH_MODEL", "tts-1-hd")
+    speech_voice = os.getenv("OPENAI_SPEECH_VOICE", "nova")
+    return ModelSettings(
+        api_key=api_key,
+        master_model=master_model,
+        agents_model=agents_model,
+        speech_model=speech_model,
+        speech_voice=speech_voice,
+    )

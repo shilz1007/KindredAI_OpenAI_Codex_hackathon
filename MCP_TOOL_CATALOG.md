@@ -20,9 +20,11 @@ All timestamps are ISO 8601 date-time strings, for example `2026-07-19T08:00:00+
 | Agent | Role | Permitted MCPs | Important boundary |
 | --- | --- | --- | --- |
 | **Master** | Conversational coordinator and router | None directly | Routes to specialists; it must not call MCP tools itself. |
+| **Router** | Internal structured route-selection agent | None | Returns an agent and intent only; it cannot speak to Anita or perform actions. |
 | **Companion** | Personal conversation, memories, family support | Memory, Communication | Family messages require explicit approval and are simulated. |
 | **Guardian** | Health, medication supply, incoming-message safety | Health, Security, Inventory | Uses only **medication** inventory tools, never household purchasing. |
 | **Logistics** | Household items and reminders | Inventory | Uses only **household** inventory tools and reminders. |
+| **Research** | Current public information and practical guides | Tavily | Read-only live web research; cannot access personal Kindred data or perform external actions. |
 
 ### Permission matrix
 
@@ -48,6 +50,7 @@ All timestamps are ISO 8601 date-time strings, for example `2026-07-19T08:00:00+
 | Memory | `get_user_profile` | Read | Companion | Get the demo user’s profile. |
 | Memory | `save_memory` | Write | Companion | Store an approved fact or preference. |
 | Memory | `retrieve_history` | Read | Companion | Get recent conversation history. |
+| Memory | `retrieve_memories` | Read | Companion | Get approved stored facts, optionally by category. |
 | Security | `analyze_message` | Write | Guardian | Analyse and store a security event. |
 | Security | `create_security_alert` | Write | Guardian | Add an alert for an existing security event. |
 | Security | `get_security_events` | Read | Guardian | List stored security events. |
@@ -62,9 +65,10 @@ All timestamps are ISO 8601 date-time strings, for example `2026-07-19T08:00:00+
 | Communication | `get_family_contacts` | Read | Companion | List family contacts. |
 | Communication | `get_phone_book` | Read | Companion | List contacts approved for simulated calls. |
 | Communication | `add_phone_book_contact` | Write · simulated | Companion | Store a trusted family contact for simulated communication. |
-| Communication | `send_family_message` | Write · approval required · simulated | Companion | Queue an approved family message. |
-| Communication | `request_family_call` | Write · simulated | Companion | Record a request to call a family contact. |
+| Communication | `send_contact_message` | Write · approval required · simulated | Companion | Queue an approved message to any saved phone-book contact. |
+| Communication | `request_contact_call` | Write · simulated | Companion | Record a request to call any saved phone-book contact. |
 | Communication | `create_notification` | Not implemented | Companion | Always returns a tool error. |
+| Tavily remote MCP | provider discovery and search tools | Read | Research | Invoked only through OpenAI Responses; tool schema is provided by Tavily at runtime and is never exposed to the browser. |
 
 ---
 
@@ -193,6 +197,14 @@ Returns the created schedule, including its generated `id`. Use that ID when add
 
 Returns recent entries, newest first: `id`, `speaker`, `content`, and `occurred_at`.
 
+### `retrieve_memories`
+
+```json
+{"type":"object","additionalProperties":false,"properties":{"category":{"type":["string","null"]},"limit":{"type":"integer","minimum":1,"maximum":100,"default":50}}}
+```
+
+Returns approved memory facts. The daily greeting reads `important_date`, `event_date`, and `special_day` entries through Companion.
+
 ---
 
 ## 5. Security MCP — Guardian
@@ -287,17 +299,17 @@ Returns simulated phone-message records with the message text, received timestam
 | --- | --- | --- |
 | `get_family_contacts` | `{}` | Returns family contact IDs, names, and relationships. |
 | `get_phone_book` | `{}` | Returns approved phone-book contacts, including a prototype phone number. |
-| `send_family_message` | `{"contact_id":"son","content":"Please call me.","user_approved":true}` | Queues a local simulated message. |
-| `request_family_call` | `{"contact_query":"son"}` | Records a simulated call request. |
+| `send_contact_message` | `{"contact_id":"son","content":"Please call me.","user_approved":true}` | Queues a local simulated message. |
+| `request_contact_call` | `{"contact_query":"son"}` | Records a simulated call request. |
 | `create_notification` | `{}` | **Not implemented**; always raises a tool error. |
 
-`send_family_message` schema:
+`send_contact_message` schema:
 
 ```json
 {"type":"object","additionalProperties":false,"required":["contact_id","content","user_approved"],"properties":{"contact_id":{"type":"string"},"content":{"type":"string","minLength":1},"user_approved":{"type":"boolean"}}}
 ```
 
-`request_family_call` schema:
+`request_contact_call` schema:
 
 ```json
 {"type":"object","additionalProperties":false,"required":["contact_query"],"properties":{"contact_query":{"type":"string","minLength":1}}}

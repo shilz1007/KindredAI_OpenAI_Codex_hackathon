@@ -47,6 +47,12 @@ class MemoryMcpTests(unittest.TestCase):
         self.assertEqual(1, len(history))
         self.assertEqual("assistant", history[0].speaker)
 
+    def test_retrieve_memories_filters_by_category(self) -> None:
+        dates = self.service.retrieve_memories(category="important_date")
+        self.assertGreaterEqual(len(dates), 1)
+        self.assertTrue(all(item.category == "important_date" for item in dates))
+        self.assertIn("birthday", dates[0].content.lower())
+
     def test_invalid_memory_requests_are_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "cannot be empty"):
             self.service.save_memory(content="   ", category="general", source="conversation", importance=1)

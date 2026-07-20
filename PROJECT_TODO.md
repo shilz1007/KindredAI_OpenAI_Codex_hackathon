@@ -59,7 +59,7 @@ Use `✅` for completed work and `⬜` for planned work. The prototype deliberat
 
 ## Experience, Testing, and Observability
 
-- ✅ Temporary Gradio harnesses for early Master/Guardian testing.
+- ✅ Temporary agent harnesses were replaced by the React Care Hub and FastAPI/Swagger testing.
 - ✅ React UI for ongoing prototype testing, including a judge-facing Admin data-entry page.
 - ✅ OpenAI Responses integration for text conversation and a temporary Realtime WebSocket voice test.
 - ✅ Langfuse tracing for agent delegation, LLM generations, and MCP tool calls.

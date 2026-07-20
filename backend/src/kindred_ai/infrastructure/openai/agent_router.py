@@ -22,25 +22,16 @@ def _strict_route_schema() -> dict:
 class OpenAIAgentRouter:
     """Returns a validated route; execution remains in the Master Agent."""
 
-    def __init__(self, *, api_key: str, model: str) -> None:
+    def __init__(self, *, api_key: str, model: str, instruction: str) -> None:
         self._client = OpenAI(api_key=api_key)
         self._model = model
+        self._instruction = instruction
 
     def route(self, message: str) -> AgentRoute:
         with observation("llm.agent-router", as_type="generation", input={"message": message}, metadata={"feature": "routing"}) as generation:
             response = self._client.responses.create(
             model=self._model,
-            instructions=(
-                "Classify the user's request for Kindred AI. Return only the requested schema. "
-                "Master handles general safety/cybersecurity advice without inspecting any stored messages. "
-                "Use Guardian's security_inbox intent only when the user explicitly asks to read, check, or list phone messages that were already received or stored in Kindred, including questions such as 'Do I have new messages?' or 'Read my phone messages'. "
-                "A general question such as whether it is safe to share a code stays with Master as general_safety_guidance. Guardian handles medication supply and medication replenishment. "
-                "Companion handles social conversation, memory, and requests to call an approved family member. "
-                "Use communication_call and extract contact_query for a call request. Logistics handles non-medication household stock, purchase requests, and reminders. "
-                "Use household_inventory, household_purchase, or household_reminder for those specific Logistics requests. "
-                "Do not claim a purchase is authorized. Extract medication or household item names and quantity only when clearly stated. "
-                "For a household reminder, extract reminder_title and an ISO 8601 time with timezone only when the user clearly provides one."
-            ),
+            instructions=self._instruction,
             input=message,
             text={
                 "format": {

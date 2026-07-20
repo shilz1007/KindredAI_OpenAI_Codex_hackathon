@@ -157,7 +157,7 @@ Behaviour:
 
 ## 6. Backend and Frontend Contract Requirements
 
-- React uses stable FastAPI endpoints, never Python in-process calls used by Gradio.
+- React uses stable FastAPI endpoints, never in-process Python calls.
 - Text conversation requires a Master API with a browser session identifier, send-turn, and clear-session operations.
 - Browser voice uses WebRTC with a short-lived backend-issued Realtime credential. The long-lived OpenAI API key remains server-side.
 - Realtime tool requests are allow-listed and sent to a backend Master delegation endpoint; the browser cannot invoke arbitrary agent/MCP tools.

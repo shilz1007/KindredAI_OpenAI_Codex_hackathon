@@ -9,13 +9,15 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
-AgentId = Literal["master", "companion", "guardian", "logistics"]
+AgentId = Literal["master", "router", "companion", "guardian", "logistics", "research"]
 
 APPROVED_AGENT_MCP_SERVERS: dict[str, frozenset[str]] = {
     "master": frozenset(),
+    "router": frozenset(),
     "companion": frozenset({"memory", "communication"}),
     "guardian": frozenset({"security", "health", "inventory"}),
     "logistics": frozenset({"inventory"}),
+    "research": frozenset({"tavily"}),
 }
 KNOWN_MCP_SERVERS = frozenset().union(*APPROVED_AGENT_MCP_SERVERS.values())
 
@@ -51,7 +53,7 @@ class AgentCatalog(BaseModel):
         if len(ids) != len(set(ids)):
             raise ValueError("Agent catalog contains duplicate agent IDs.")
         if set(ids) != set(APPROVED_AGENT_MCP_SERVERS):
-            raise ValueError("Agent catalog must define master, companion, guardian, and logistics exactly once.")
+            raise ValueError("Agent catalog must define master, router, companion, guardian, logistics, and research exactly once.")
         return self
 
 

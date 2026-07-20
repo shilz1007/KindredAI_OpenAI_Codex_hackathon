@@ -102,7 +102,9 @@ class OpenAIRealtimeVoiceModel:
                     },
                     "output": {
                         "format": {"type": "audio/pcm", "rate": REALTIME_SAMPLE_RATE},
-                        "voice": "alloy",
+                        # Keep the temporary browser voice interface aligned with the
+                        # Care Hub's calm, feminine voice selection.
+                        "voice": "nova",
                     },
                 },
                 "tools": [
@@ -145,7 +147,7 @@ async def _send_event(socket: websockets.ClientConnection, event_type: str, **pa
 def wav_to_pcm16(audio_wav: bytes, target_rate: int = REALTIME_SAMPLE_RATE) -> bytes:
     """Convert a standard mono/stereo signed-16-bit WAV into mono PCM16.
 
-    Gradio records browser audio as WAV. Realtime PCM input is 24 kHz mono, so
+    The browser records audio as WAV. Realtime PCM input is 24 kHz mono, so
     this small dependency-free converter keeps the temporary UI portable.
     """
     with wave.open(BytesIO(audio_wav), "rb") as source:

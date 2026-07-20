@@ -11,9 +11,7 @@ The system provides:
 - Safety monitoring
 - Family communication support
 
-The system supports bilingual conversations:
-- English
-- Bengali
+The current prototype supports English conversations. Bengali voice interaction is deferred.
 
 
 ---
@@ -30,15 +28,16 @@ The system supports bilingual conversations:
                   Master Agent
                  (Voice Face)
                          |
-                  Function Routing
+                    Router Agent
+             (internal route selection)
                          |
-        -----------------------------------
-        |                |                |
-        |                |                |
- Companion Agent   Guardian Agent   Logistics Agent
-        |                |                |
-        |                |                |
- Memory MCP +      Security MCP +      Inventory MCP
+        ------------------------------------------------
+        |                |                |             |
+        |                |                |             |
+ Companion Agent   Guardian Agent   Logistics Agent  Research Agent
+        |                |                |             |
+        |                |                |             |
+ Memory MCP +      Security MCP +      Inventory MCP Tavily remote MCP
  Communication MCP Health MCP +
                    Inventory MCP
 
@@ -73,6 +72,17 @@ Responsibilities:
 - Execute business logic
 - Perform specialist tasks
 
+## Internal Router Agent
+
+Router Agent is a separate internal agent. Master sends it the user request, short-lived session context, and current Europe/Oslo time. Router returns a structured, validated decision identifying the correct next agent and any clearly stated details needed by that workflow.
+
+Router Agent:
+
+- Has no MCP, database, or user-facing conversation access.
+- Cannot perform an action or bypass confirmation requirements.
+- Selects Master, Companion, Guardian, Logistics, or Research as the next handler.
+- Uses the validated Router instruction from `agents.yaml`.
+
 
 ---
 
@@ -95,6 +105,21 @@ Uses:
 
 - Memory MCP Server
 - Communication MCP Server
+
+---
+
+# Research Agent
+
+## Purpose
+
+Retrieves current public information for Master without accessing Anita's personal data.
+
+Uses:
+
+- Tavily hosted remote MCP, read-only
+- An isolated local SQLite history containing only the latest 20 public research answers
+
+The Research Agent never speaks directly to the user. Master reads its concise English result without exposing search URLs, source details, or credentials.
 
 
 ---
@@ -278,7 +303,7 @@ AI:
 
 # 10. Temporary Agent Testing Plan
 
-Before the React Native/WebRTC interface is implemented, agents are tested through a local Gradio interface.
+Agents are tested through the React Care Hub and FastAPI/Swagger endpoints.
 
 - The interface is a temporary development harness, not a production user interface.
 - Each agent is wired into the harness as it is implemented.

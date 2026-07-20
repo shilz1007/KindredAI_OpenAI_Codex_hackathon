@@ -44,3 +44,11 @@ def retrieve_history(
 ) -> list[dict[str, str]]:
     """Get recent conversation history, newest first."""
     return [entry.to_dict() for entry in get_memory_service().retrieve_history(limit=limit)]
+
+
+@router.get("/memories")
+def retrieve_memories(
+    category: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=MAX_HISTORY_LIMIT),
+) -> list[dict[str, str | int]]:
+    return [memory.to_dict() for memory in get_memory_service().retrieve_memories(category=category, limit=limit)]
