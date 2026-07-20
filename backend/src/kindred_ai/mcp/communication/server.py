@@ -23,6 +23,19 @@ async def get_phone_book() -> list[dict]:
 
 
 @mcp.tool()
+async def add_phone_book_contact(
+    display_name: str,
+    relationship: str,
+    phone_number: str,
+    approved_for_calls: bool = True,
+) -> dict:
+    """Add a family phone-book contact for simulated communication only."""
+    return get_communication_service().add_phone_book_contact(
+        display_name, relationship, phone_number, approved_for_calls,
+    )
+
+
+@mcp.tool()
 async def request_family_call(contact_query: str) -> dict:
     """Record a requested call; this prototype never starts a real phone call."""
     return get_communication_service().request_family_call(contact_query)

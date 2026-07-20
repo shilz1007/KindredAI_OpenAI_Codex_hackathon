@@ -72,6 +72,10 @@ class InventoryMcpClient:
         from kindred_ai.mcp.inventory.server import mcp
         return _call(mcp, "KINDRED_MCP_INVENTORY_URL", "create_reminder", {"title": title, "remind_at": remind_at})
 
+    def get_reminders(self) -> list[dict[str, Any]]:
+        from kindred_ai.mcp.inventory.server import mcp
+        return _call(mcp, "KINDRED_MCP_INVENTORY_URL", "get_reminders", {})
+
 class MemoryMcpClient:
     def get_user_profile(self):
         from kindred_ai.mcp.memory.server import mcp
@@ -90,6 +94,9 @@ class CommunicationMcpClient:
     def get_phone_book(self):
         from kindred_ai.mcp.communication.server import mcp
         return _call(mcp, "KINDRED_MCP_COMMUNICATION_URL", "get_phone_book", {})
+    def add_phone_book_contact(self, display_name: str, relationship: str, phone_number: str, approved_for_calls: bool = True):
+        from kindred_ai.mcp.communication.server import mcp
+        return _call(mcp, "KINDRED_MCP_COMMUNICATION_URL", "add_phone_book_contact", {"display_name": display_name, "relationship": relationship, "phone_number": phone_number, "approved_for_calls": approved_for_calls})
     def request_family_call(self, contact_query: str):
         from kindred_ai.mcp.communication.server import mcp
         return _call(mcp, "KINDRED_MCP_COMMUNICATION_URL", "request_family_call", {"contact_query": contact_query})

@@ -89,7 +89,7 @@ class GradioGuardianTests(unittest.TestCase):
         self.assertIn("User: I feel lonely", model.contexts[1])
         self.assertIn("Assistant: reply to I feel lonely", model.contexts[1])
         self.assertEqual("reply to Call my son", master.respond("Call my son", session_id="browser-1"))
-        self.assertIn("Call request recorded for Rahim (son)", model.contexts[2])
+        self.assertIn("Your message for Rahim has been recorded", model.contexts[2])
         master.clear_conversation("browser-1")
         master.respond("Fresh conversation", session_id="browser-1")
         self.assertNotIn("User: I feel lonely", model.contexts[3])
@@ -110,3 +110,21 @@ class GradioGuardianTests(unittest.TestCase):
         reply = MasterAgent(FakeConversationModel(), InboxGuardian(), InboxRouter()).respond("Do I have new messages?")
         self.assertIn("Sara", reply)
         self.assertIn("Sunday afternoon", reply)
+
+    def test_master_generates_a_short_welcome_thought_without_specialist_routing(self) -> None:
+        class FakeConversationModel:
+            def respond(self, *, instruction: str, user_message: str, specialist_context: str) -> str:
+                self.instruction = instruction
+                self.user_message = user_message
+                self.specialist_context = specialist_context
+                return "A little kindness can brighten the whole day."
+
+        class RouterThatMustNotRun:
+            def route(self, message: str) -> AgentRoute:
+                raise AssertionError("Welcome thoughts must not invoke an MCP-owning specialist.")
+
+        model = FakeConversationModel()
+        master = MasterAgent(model, get_guardian_agent(), RouterThatMustNotRun())
+        self.assertEqual("A little kindness can brighten the whole day.", master.welcome_thought())
+        self.assertIn("one sentence", model.instruction)
+        self.assertEqual("No specialist data is needed.", model.specialist_context)

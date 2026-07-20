@@ -42,6 +42,7 @@ All timestamps are ISO 8601 date-time strings, for example `2026-07-19T08:00:00+
 | MCP | Tool | Mode | Called by | Purpose |
 | --- | --- | --- | --- | --- |
 | Health | `get_medication_schedule` | Read | Guardian | Get active medicine schedules and daily times. |
+| Health | `create_medication_schedule` | Write | Guardian | Create an active medicine plan and its daily times. |
 | Health | `record_medication_taken` | Write | Guardian | Record one confirmed dose. |
 | Health | `get_health_events` | Read | Guardian | Review health events, newest first. |
 | Memory | `get_user_profile` | Read | Companion | Get the demo user’s profile. |
@@ -52,12 +53,15 @@ All timestamps are ISO 8601 date-time strings, for example `2026-07-19T08:00:00+
 | Security | `get_security_events` | Read | Guardian | List stored security events. |
 | Security | `get_phone_messages` | Read | Guardian | List simulated stored phone messages, newest first. |
 | Inventory | `check_inventory` | Read | Guardian | Get medication stock, linked Health schedule ID, and reorder status. |
+| Inventory | `upsert_medication_inventory` | Write | Guardian | Create or update medication stock linked to a Health schedule. |
 | Inventory | `request_purchase` | Write · approval required | Guardian | Record a confirmed medication replenishment request. |
 | Inventory | `check_household_inventory` | Read | Logistics | Get household stock and reorder signals. |
+| Inventory | `get_reminders` | Read | Logistics | List scheduled local reminders, next due first. |
 | Inventory | `request_household_purchase` | Write · approval required | Logistics | Record a confirmed household purchase request. |
 | Inventory | `create_reminder` | Write · simulated | Logistics | Store a local reminder; delivery is not implemented. |
 | Communication | `get_family_contacts` | Read | Companion | List family contacts. |
 | Communication | `get_phone_book` | Read | Companion | List contacts approved for simulated calls. |
+| Communication | `add_phone_book_contact` | Write · simulated | Companion | Store a trusted family contact for simulated communication. |
 | Communication | `send_family_message` | Write · approval required · simulated | Companion | Queue an approved family message. |
 | Communication | `request_family_call` | Write · simulated | Companion | Record a request to call a family contact. |
 | Communication | `create_notification` | Not implemented | Companion | Always returns a tool error. |
@@ -95,6 +99,26 @@ All timestamps are ISO 8601 date-time strings, for example `2026-07-19T08:00:00+
   }
 }
 ```
+
+### `create_medication_schedule`
+
+**Use when:** a medication plan is being set up for the prototype user.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["medication_name", "dose_instructions", "daily_times"],
+  "properties": {
+    "medication_name": {"type": "string", "minLength": 1},
+    "dose_instructions": {"type": "string", "minLength": 1},
+    "daily_times": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^\\d{2}:\\d{2}$"}},
+    "timezone": {"type": "string", "default": "Europe/Oslo"}
+  }
+}
+```
+
+Returns the created schedule, including its generated `id`. Use that ID when adding or linking medication stock in Inventory MCP.
 
 ### `record_medication_taken`
 
@@ -223,6 +247,7 @@ Returns simulated phone-message records with the message text, received timestam
 | Tool | Input | Result |
 | --- | --- | --- |
 | `check_inventory` | `{}` | Health `schedule_id`, medication name, units available, last purchase date, and reorder status. |
+| `upsert_medication_inventory` | `{"schedule_id":"string","medication_name":"string","units_available":30,"last_purchased_on":"YYYY-MM-DD"}` | Create or update local medicine stock for a Health schedule. |
 | `request_purchase` | `{"medication_name":"string","quantity":1,"user_confirmed":true}` | A locally recorded request with ID, status, and timestamp. |
 
 `request_purchase` schema:
@@ -238,6 +263,7 @@ Returns simulated phone-message records with the message text, received timestam
 | Tool | Input | Result |
 | --- | --- | --- |
 | `check_household_inventory` | `{}` | Item, available quantity, reorder threshold, and `reorder_needed`. |
+| `get_reminders` | `{}` | Scheduled local reminders, ordered by next due time. |
 | `request_household_purchase` | `{"item_name":"string","quantity":1,"user_confirmed":true}` | A locally recorded simulated purchase request. |
 | `create_reminder` | `{"title":"string","remind_at":"date-time"}` | A locally scheduled reminder. |
 

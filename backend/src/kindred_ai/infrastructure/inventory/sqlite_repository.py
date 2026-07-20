@@ -77,6 +77,38 @@ class SqliteInventoryRepository:
             ).fetchone()
         return _item(row) if row else None
 
+    def upsert_medication_inventory(
+        self,
+        *,
+        inventory_id: str,
+        schedule_id: str,
+        medication_name: str,
+        units_available: int,
+        last_purchased_at: datetime,
+    ) -> MedicationInventory:
+        """Create or replace stock associated with one Health schedule ID."""
+        timestamp = last_purchased_at.astimezone(UTC).isoformat()
+        with self._connection() as connection:
+            existing = connection.execute(
+                "SELECT id FROM medication_inventory WHERE schedule_id = ?", (schedule_id,)
+            ).fetchone()
+            if existing:
+                connection.execute(
+                    """UPDATE medication_inventory
+                    SET medication_name = ?, units_available = ?, last_purchased_at = ?
+                    WHERE schedule_id = ?""",
+                    (medication_name, units_available, timestamp, schedule_id),
+                )
+                inventory_id = existing["id"]
+            else:
+                connection.execute(
+                    """INSERT INTO medication_inventory
+                    (id, schedule_id, medication_name, units_available, last_purchased_at)
+                    VALUES (?, ?, ?, ?, ?)""",
+                    (inventory_id, schedule_id, medication_name, units_available, timestamp),
+                )
+        return MedicationInventory(inventory_id, medication_name, units_available, datetime.fromisoformat(timestamp), schedule_id)
+
     def add_purchase_request(self, *, request_id: str, medication_name: str, quantity: int, created_at: datetime) -> PurchaseRequest:
         timestamp = created_at.astimezone(UTC).isoformat()
         with self._connection() as connection:
@@ -104,6 +136,18 @@ class SqliteInventoryRepository:
         with self._connection() as connection:
             connection.execute("INSERT INTO reminders VALUES (?, ?, ?, 'scheduled')", (reminder_id, title, timestamp))
         return Reminder(reminder_id, title, datetime.fromisoformat(timestamp), "scheduled")
+
+    def get_reminders(self) -> list[Reminder]:
+        """Return local scheduled reminders in their next-due order."""
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT id, title, remind_at, status FROM reminders
+                WHERE status = 'scheduled' ORDER BY remind_at ASC, id ASC"""
+            ).fetchall()
+        return [
+            Reminder(row["id"], row["title"], datetime.fromisoformat(row["remind_at"]), row["status"])
+            for row in rows
+        ]
 
 
 def _item(row: sqlite3.Row) -> MedicationInventory:

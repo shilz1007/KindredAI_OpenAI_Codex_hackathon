@@ -13,6 +13,17 @@ class HealthRepository(Protocol):
 
     def get_active_schedule(self, user_id: str, schedule_id: str) -> MedicationSchedule | None: ...
 
+    def add_medication_schedule(
+        self,
+        *,
+        schedule_id: str,
+        user_id: str,
+        medication_name: str,
+        dose_instructions: str,
+        timezone: str,
+        daily_times: tuple[str, ...],
+    ) -> MedicationSchedule: ...
+
     def add_medication_taken_record(
         self,
         *,

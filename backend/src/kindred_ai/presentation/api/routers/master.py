@@ -12,6 +12,15 @@ class ConversationTurnRequest(BaseModel):
     message: str = Field(min_length=1, examples=["How many days of Metformin do I have left?"])
 
 
+@router.post("/welcome-thought", status_code=status.HTTP_201_CREATED)
+def welcome_thought() -> dict[str, str]:
+    """Generate one short, fresh Care Hub encouragement for the current local login."""
+    try:
+        return {"thought": get_master_agent().welcome_thought()}
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+
+
 @router.post("/conversations/{session_id}/turns", status_code=status.HTTP_201_CREATED)
 def send_turn(session_id: str, payload: ConversationTurnRequest) -> dict[str, str]:
     """Send an English text turn through Master and its approved specialist delegation."""

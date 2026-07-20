@@ -1,6 +1,6 @@
 """Use cases for the Inventory MCP medication prototype."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from functools import lru_cache
 from uuid import uuid4
 
@@ -21,6 +21,30 @@ class InventoryService:
 
     def get_item_for_schedule(self, schedule_id: str) -> MedicationInventory | None:
         return self._repository.get_item_for_schedule(schedule_id)
+
+    def upsert_medication_inventory(
+        self,
+        *,
+        schedule_id: str,
+        medication_name: str,
+        units_available: int,
+        last_purchased_on: date,
+    ) -> MedicationInventory:
+        """Store current stock for a Health schedule; no order is placed."""
+        if not schedule_id.strip():
+            raise ValueError("Medication schedule ID is required.")
+        if not medication_name.strip():
+            raise ValueError("Medication name is required.")
+        if units_available < 0:
+            raise ValueError("Units available cannot be negative.")
+        purchased_at = datetime.combine(last_purchased_on, time.min, tzinfo=UTC)
+        return self._repository.upsert_medication_inventory(
+            inventory_id=str(uuid4()),
+            schedule_id=schedule_id.strip(),
+            medication_name=medication_name.strip(),
+            units_available=units_available,
+            last_purchased_at=purchased_at,
+        )
 
     def request_purchase(self, *, medication_name: str, quantity: int, user_confirmed: bool) -> PurchaseRequest:
         if not user_confirmed:
@@ -57,6 +81,10 @@ class InventoryService:
         if remind_at.tzinfo is None:
             raise ValueError("Reminder time must include a timezone.")
         return self._repository.add_reminder(reminder_id=str(uuid4()), title=title.strip(), remind_at=remind_at)
+
+    def get_reminders(self) -> list[Reminder]:
+        """List scheduled local reminders, with the next reminder first."""
+        return self._repository.get_reminders()
 
 
 @lru_cache(maxsize=1)

@@ -137,6 +137,37 @@ class SqliteHealthRepository:
             None,
         )
 
+    def add_medication_schedule(
+        self,
+        *,
+        schedule_id: str,
+        user_id: str,
+        medication_name: str,
+        dose_instructions: str,
+        timezone: str,
+        daily_times: tuple[str, ...],
+    ) -> MedicationSchedule:
+        """Store one active medication plan and its named local daily times."""
+        with self._connection() as connection:
+            connection.execute(
+                """INSERT INTO medication_schedules
+                (id, user_id, medication_name, dose_instructions, timezone, is_active)
+                VALUES (?, ?, ?, ?, ?, 1)""",
+                (schedule_id, user_id, medication_name, dose_instructions, timezone),
+            )
+            connection.executemany(
+                "INSERT INTO medication_schedule_times (schedule_id, local_time) VALUES (?, ?)",
+                ((schedule_id, local_time) for local_time in daily_times),
+            )
+        return MedicationSchedule(
+            id=schedule_id,
+            medication_name=medication_name,
+            dose_instructions=dose_instructions,
+            timezone=timezone,
+            daily_times=daily_times,
+            is_active=True,
+        )
+
     def add_medication_taken_record(
         self, *, record_id: str, user_id: str, schedule_id: str, taken_at: datetime, note: str | None,
     ) -> MedicationTakenRecord:

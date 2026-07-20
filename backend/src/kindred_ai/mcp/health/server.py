@@ -17,6 +17,22 @@ async def get_medication_schedule() -> list[dict[str, Any]]:
 
 
 @mcp.tool()
+async def create_medication_schedule(
+    medication_name: str,
+    dose_instructions: str,
+    daily_times: list[str],
+    timezone: str = "Europe/Oslo",
+) -> dict[str, Any]:
+    """Create an active medication plan for the prototype demo user."""
+    return get_health_service().create_medication_schedule(
+        medication_name=medication_name,
+        dose_instructions=dose_instructions,
+        daily_times=daily_times,
+        timezone=timezone,
+    ).to_dict()
+
+
+@mcp.tool()
 async def record_medication_taken(
     schedule_id: str,
     taken_at: datetime | None = None,

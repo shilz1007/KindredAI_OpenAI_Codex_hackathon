@@ -59,6 +59,22 @@ class HealthMcpTests(unittest.TestCase):
             ).fetchone()
         self.assertEqual(("demo-schedule-metformin", "Taken after breakfast"), stored)
 
+    def test_create_medication_schedule_persists_normalized_daily_times(self) -> None:
+        schedule = self.service.create_medication_schedule(
+            medication_name="Amlodipine",
+            dose_instructions="5 mg with water",
+            daily_times=["20:00", "08:00", "08:00"],
+        )
+        schedules = self.service.get_medication_schedule()
+        self.assertIn(schedule.id, [item.id for item in schedules])
+        self.assertEqual(("08:00", "20:00"), schedule.daily_times)
+
+    def test_invalid_medication_schedule_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "HH:MM"):
+            self.service.create_medication_schedule(
+                medication_name="Amlodipine", dose_instructions="5 mg", daily_times=["8am"],
+            )
+
     def test_invalid_schedule_does_not_insert_record(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unknown or inactive"):
             self.service.record_medication_taken(schedule_id="missing", taken_at=None, note=None)

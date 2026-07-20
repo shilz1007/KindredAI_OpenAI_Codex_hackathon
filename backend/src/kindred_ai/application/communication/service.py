@@ -15,7 +15,6 @@ class CommunicationService:
             c.executescript("""CREATE TABLE IF NOT EXISTS family_contacts (id TEXT PRIMARY KEY, name TEXT NOT NULL, relationship TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS communication_messages (id TEXT PRIMARY KEY, contact_id TEXT NOT NULL REFERENCES family_contacts(id), content TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);
             INSERT OR IGNORE INTO family_contacts VALUES ('daughter','Sara','daughter');
-            INSERT OR IGNORE INTO family_contacts VALUES ('son','Rahim','son');
             CREATE TABLE IF NOT EXISTS phone_book_contacts (
                 id TEXT PRIMARY KEY REFERENCES family_contacts(id),
                 display_name TEXT NOT NULL,
@@ -29,8 +28,7 @@ class CommunicationService:
                 status TEXT NOT NULL CHECK (status IN ('requested', 'cancelled', 'completed')),
                 created_at TEXT NOT NULL
             );
-            INSERT OR IGNORE INTO phone_book_contacts VALUES ('daughter', 'Sara', 'daughter', '+4712345678', 1);
-            INSERT OR IGNORE INTO phone_book_contacts VALUES ('son', 'Rahim', 'son', '+4787654321', 1);""")
+            INSERT OR IGNORE INTO phone_book_contacts VALUES ('daughter', 'Sara', 'daughter', '+4712345678', 1);""")
     def list_contacts(self):
         with closing(sqlite3.connect(self.path)) as c:
             return [{"id": r[0], "name": r[1], "relationship": r[2]} for r in c.execute("SELECT id,name,relationship FROM family_contacts ORDER BY name")]
@@ -46,6 +44,29 @@ class CommunicationService:
                 for row in rows
             ]
 
+    def add_phone_book_contact(self, display_name: str, relationship: str, phone_number: str, approved_for_calls: bool):
+        """Store a prototype-only family contact for simulated calls and messages."""
+        name = display_name.strip()
+        relation = relationship.strip().lower()
+        phone = phone_number.strip()
+        if not name:
+            raise ValueError("Contact name is required.")
+        if not relation:
+            raise ValueError("Contact relationship is required.")
+        if len(phone) < 7:
+            raise ValueError("A valid phone number is required.")
+        contact_id = f"contact-{uuid4()}"
+        with closing(sqlite3.connect(self.path)) as c:
+            if c.execute("SELECT 1 FROM phone_book_contacts WHERE phone_number = ?", (phone,)).fetchone():
+                raise ValueError("A phone book contact already uses this phone number.")
+            c.execute("INSERT INTO family_contacts VALUES (?, ?, ?)", (contact_id, name, relation))
+            c.execute(
+                "INSERT INTO phone_book_contacts VALUES (?, ?, ?, ?, ?)",
+                (contact_id, name, relation, phone, int(approved_for_calls)),
+            )
+            c.commit()
+        return {"id": contact_id, "display_name": name, "relationship": relation, "phone_number": phone, "approved_for_calls": approved_for_calls}
+
     def request_family_call(self, contact_query: str):
         """Record a requested call. TODO: integrate an approved telephony provider."""
         clean_query = contact_query.strip()
@@ -54,8 +75,10 @@ class CommunicationService:
         with closing(sqlite3.connect(self.path)) as c:
             matches = c.execute(
                 "SELECT id, display_name, relationship, phone_number FROM phone_book_contacts "
-                "WHERE lower(display_name) = lower(?) OR lower(relationship) = lower(?)",
-                (clean_query, clean_query),
+                "WHERE lower(display_name) = lower(?) OR lower(relationship) = lower(?) "
+                "OR instr(lower(?), lower(display_name)) > 0 "
+                "OR instr(lower(?), lower(relationship)) > 0",
+                (clean_query, clean_query, clean_query, clean_query),
             ).fetchall()
             if not matches:
                 raise ValueError("Phone book contact was not found.")
@@ -64,6 +87,7 @@ class CommunicationService:
             contact = matches[0]
             request = {"id": str(uuid4()), "contact_id": contact[0], "status": "requested", "created_at": datetime.now(UTC).isoformat()}
             c.execute("INSERT INTO call_requests VALUES (:id, :contact_id, :status, :created_at)", request)
+            c.commit()
         return {**request, "display_name": contact[1], "relationship": contact[2], "phone_number": contact[3]}
     def send_family_message(self, contact_id: str, content: str, approved: bool):
         if not approved: raise ValueError("Explicit user approval is required before sending a family message.")
@@ -72,6 +96,7 @@ class CommunicationService:
             if not c.execute("SELECT 1 FROM family_contacts WHERE id=?", (contact_id,)).fetchone(): raise ValueError("Family contact was not found.")
             result={"id":str(uuid4()),"contact_id":contact_id,"content":content.strip(),"status":"queued","created_at":datetime.now(UTC).isoformat()}
             c.execute("INSERT INTO communication_messages VALUES (:id,:contact_id,:content,:status,:created_at)",result)
+            c.commit()
         return result
 
 _service=None

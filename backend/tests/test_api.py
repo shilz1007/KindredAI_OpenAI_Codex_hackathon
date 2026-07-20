@@ -41,6 +41,15 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(200, self.client.get("/api/v1/security/events").status_code)
 
     def test_write_endpoints_use_application_services(self) -> None:
+        medication_plan_response = self.client.post(
+            "/api/v1/health/medication-schedule",
+            json={
+                "medication_name": "Amlodipine",
+                "dose_instructions": "5 mg with water",
+                "daily_times": ["08:00"],
+                "timezone": "Europe/Oslo",
+            },
+        )
         health_response = self.client.post(
             "/api/v1/health/medication-taken",
             json={"schedule_id": "demo-schedule-metformin", "note": "Swagger test"},
@@ -53,6 +62,8 @@ class ApiTests(unittest.TestCase):
             "/api/v1/security/analyze-message",
             json={"message": "Urgent: send gift card details."},
         )
+        self.assertEqual(201, medication_plan_response.status_code)
+        self.assertEqual(["08:00"], medication_plan_response.json()["daily_times"])
         self.assertEqual(201, health_response.status_code)
         self.assertEqual(201, memory_response.status_code)
         self.assertEqual(201, security_response.status_code)

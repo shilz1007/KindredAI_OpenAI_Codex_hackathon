@@ -21,3 +21,7 @@ class LogisticsAgent:
     def schedule_reminder(self, *, title: str, remind_at: str) -> dict[str, Any]:
         """Create a local reminder. TODO: hand due reminders to Communication MCP."""
         return self._inventory.create_reminder(title, remind_at)
+
+    def reminders(self) -> list[dict[str, Any]]:
+        """Show scheduled local reminders; delivery remains intentionally deferred."""
+        return self._inventory.get_reminders()

@@ -45,6 +45,20 @@ class InventoryGuardianTests(unittest.TestCase):
         self.assertTrue(metformin["refill_warning"])
         self.assertEqual("demo-schedule-metformin", metformin_inventory["schedule_id"])
 
+    def test_medication_stock_can_be_linked_to_a_schedule(self) -> None:
+        response = self.client.post(
+            "/api/v1/inventory/medication-stock",
+            json={
+                "schedule_id": "demo-schedule-metformin",
+                "medication_name": "Metformin",
+                "units_available": 60,
+                "last_purchased_on": "2026-07-20",
+            },
+        )
+        self.assertEqual(201, response.status_code)
+        self.assertEqual("demo-schedule-metformin", response.json()["schedule_id"])
+        self.assertEqual(60, response.json()["units_available"])
+
     def test_guardian_creates_alert_and_requires_order_confirmation(self) -> None:
         analysis = self.client.post("/api/v1/guardian/analyze", json={"message": "Urgent: send your gift card details."})
         denied = self.client.post("/api/v1/guardian/replenishment-requests", json={"medication_name": "Metformin", "quantity": 60, "user_confirmed": False})
@@ -77,6 +91,22 @@ class InventoryGuardianTests(unittest.TestCase):
         self.assertEqual("requested", confirmed.json()["status"])
         self.assertEqual(201, reminder.status_code)
         self.assertEqual("scheduled", reminder.json()["status"])
+
+    def test_logistics_lists_scheduled_reminders_in_next_due_order(self) -> None:
+        later = self.client.post(
+            "/api/v1/logistics/reminders",
+            json={"title": "Call the pharmacy", "remind_at": "2026-07-28T10:00:00+02:00"},
+        )
+        sooner = self.client.post(
+            "/api/v1/logistics/reminders",
+            json={"title": "Buy tea", "remind_at": "2026-07-25T10:00:00+02:00"},
+        )
+        reminders = self.client.get("/api/v1/logistics/reminders")
+        self.assertEqual(201, later.status_code)
+        self.assertEqual(201, sooner.status_code)
+        self.assertEqual(200, reminders.status_code)
+        self.assertEqual("Buy tea", reminders.json()[0]["title"])
+        self.assertEqual("Call the pharmacy", reminders.json()[1]["title"])
 
 
 if __name__ == "__main__":

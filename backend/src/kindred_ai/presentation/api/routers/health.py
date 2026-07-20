@@ -18,10 +18,28 @@ class MedicationTakenRequest(BaseModel):
     note: str | None = Field(default=None, examples=["Taken after breakfast"])
 
 
+class MedicationScheduleRequest(BaseModel):
+    """Input accepted when setting up a medication plan."""
+
+    medication_name: str = Field(min_length=1, examples=["Metformin"])
+    dose_instructions: str = Field(min_length=1, examples=["500 mg with food"])
+    daily_times: list[str] = Field(min_length=1, examples=[["08:00", "20:00"]])
+    timezone: str = Field(default="Europe/Oslo", examples=["Europe/Oslo"])
+
+
 @router.get("/medication-schedule")
 def get_medication_schedule() -> list[dict[str, object]]:
     """Get active medication schedules for the internal demo user."""
     return [schedule.to_dict() for schedule in get_health_service().get_medication_schedule()]
+
+
+@router.post("/medication-schedule", status_code=status.HTTP_201_CREATED)
+def create_medication_schedule(payload: MedicationScheduleRequest) -> dict[str, object]:
+    """Create an active medication plan for the prototype demo user."""
+    try:
+        return get_health_service().create_medication_schedule(**payload.model_dump()).to_dict()
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
 
 
 @router.post("/medication-taken", status_code=status.HTTP_201_CREATED)

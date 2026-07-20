@@ -36,8 +36,14 @@ class MasterAgent:
                 "You are the Kindred AI Master Agent, speaking warmly and clearly to an older adult. "
                 "You are the only conversational agent. Use the specialist result below as factual context. "
                 "Do not invent medication, order, or security facts. If a security alert exists, advise the user "
-                "not to share sensitive details and to contact a trusted person. Continue the English conversation naturally. "
-                "Keep the reply concise."
+                "not to share sensitive details and to contact a trusted person. Reply only in clear English, even if the user's words are transcribed incorrectly or are in another language. "
+                "Never reply in Bengali or mix languages. Continue the English conversation naturally. "
+                "Keep the reply concise. For medication-supply questions, speak in calm, plain language that is easy for an older adult to hear and read. "
+                "Only mention medicines with seven days or fewer remaining. State each in one short sentence: medicine name and days remaining. "
+                "Do not mention medicines that are well stocked unless every medicine is well stocked, in which case say that plainly. "
+                "Use no more than three short sentences before one clear question about refill help. "
+                "For a recorded family call request, keep the response to the brief specialist wording and do not add technical system limitations. "
+                "Do not use Markdown, headings, asterisks, tables, or dense lists."
             ),
             user_message=cleaned,
             specialist_context=f"Recent conversation:\n{prior_context}\n\nSpecialist result:\n{specialist_context}",
@@ -50,6 +56,24 @@ class MasterAgent:
     def clear_conversation(self, session_id: str) -> None:
         """Remove one temporary browser session from the in-memory transcript."""
         self._conversation_state.clear(session_id)
+
+    def welcome_thought(self) -> str:
+        """Create one brief, fresh encouragement for Anita's Care Hub login."""
+        with observation("master.welcome-thought", as_type="agent", input={"recipient": "Anita"}, metadata={"feature": "care-hub-welcome"}) as trace:
+            thought = self._conversation_model.respond(
+                instruction=(
+                    "Write one fresh, gentle English encouragement for Anita, an older adult. "
+                    "Make it warm, hopeful, and easy to read. Use one sentence of 18 words or fewer. "
+                    "Do not address Anita by name or use any person's name. "
+                    "Do not mention medical advice, safety warnings, Kindred, or being an AI. "
+                    "Return only the sentence, with no quotation marks or Markdown."
+                ),
+                user_message="Please choose a new encouragement for Anita's Care Hub.",
+                specialist_context="No specialist data is needed.",
+            )
+            thought = re.sub(r"^\s*Anita\s*[,!:-]?\s*", "", thought, flags=re.IGNORECASE).strip()
+            record_output(trace, {"thought": thought})
+            return thought
 
     def get_specialist_context(self, message: str) -> str:
         """Run the approved specialist workflow without generating a user-facing reply.
@@ -103,10 +127,7 @@ class MasterAgent:
             if not route.contact_query:
                 return "Who would you like to call? For example, say 'call my son' or 'call Sara'."
             request = self._companion.request_family_call(route.contact_query)
-            return (
-                f"Call request recorded for {request['display_name']} ({request['relationship']}). "
-                "This prototype does not place a real phone call yet."
-            )
+            return f"Your message for {request['display_name']} has been recorded. I have asked your {request['relationship']} to call you."
         return self._companion.respond(message)
 
     def _route_logistics(self, route: AgentRoute, message: str) -> str:

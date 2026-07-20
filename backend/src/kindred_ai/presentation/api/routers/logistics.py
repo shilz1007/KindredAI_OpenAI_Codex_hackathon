@@ -40,3 +40,9 @@ def create_reminder(payload: ReminderBody) -> dict[str, str]:
         return get_logistics_agent().schedule_reminder(title=payload.title, remind_at=payload.remind_at.isoformat())
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+
+
+@router.get("/reminders")
+def get_reminders() -> list[dict[str, object]]:
+    """List scheduled local reminders, with the next reminder first."""
+    return get_logistics_agent().reminders()

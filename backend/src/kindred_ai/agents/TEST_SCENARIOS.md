@@ -31,7 +31,7 @@ Use the temporary Gradio interface while building each agent. It is a developmen
 ## Master Agent — next scenarios
 
 - Ask: `I feel lonely today.` Expect Master to delegate to Companion and return a warm, memory-informed answer.
-- Ask: `Call my son.` Expect Master to resolve the phone-book relationship and record a local call request for Rahim. It must say that no real call is placed in this prototype.
+- Ask: `Call my son.` Expect Master to resolve a saved phone-book contact with the relationship `son` and record a local call request. It must say that no real call is placed in this prototype.
 - Ask: `Do I need to buy Jasmine tea?` Expect Master to delegate to Logistics and explain the household stock/reorder result.
 - Ask a follow-up such as `What did I just ask about?` in the same text-chat session. Expect Master to receive the recent session context.
 - Select **Clear** in the temporary UI, then ask the follow-up again. Expect the temporary session context to be gone.
