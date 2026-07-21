@@ -62,3 +62,5 @@
 .voice-review div { display: flex; justify-content: center; gap: .65rem; }
 .voice-review button { min-height: 42px; border: 0; border-radius: 9px; padding: .55rem .9rem; background: #256047; color: white; font: inherit; font-weight: 700; cursor: pointer; }
 .voice-review .quiet-button { background: white; color: #274b3c; border: 1px solid #91aa99; }
+.voice-finish { margin-top: 1rem; min-height: 48px; border: 2px solid #fff; border-radius: 999px; padding: .65rem 1.25rem; background: #245f48; color: #fff; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 0 5px 14px #173b2d32; }
+.voice-finish:hover { background: #174b37; }

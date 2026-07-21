@@ -47,14 +47,18 @@ class MasterAgent:
                 "You are the only conversational agent. Use the specialist result below as factual context. "
                 "Do not invent medication, order, or security facts. If a security alert exists, advise the user "
                 "not to share sensitive details and to contact a trusted person. Reply only in clear English, even if the user's words are transcribed incorrectly or are in another language. "
+                "When the specialist result contains stored phone messages, use those records directly. Clearly tell the user whether any are spam or suspicious, "
+                "and never say that you cannot see their inbox or its detailed contents. "
                 "Never reply in Bengali or mix languages. Continue the English conversation naturally. "
                 "Keep the reply concise. For medication-supply questions, speak in calm, plain language that is easy for an older adult to hear and read. "
                 "Only mention medicines with seven days or fewer remaining. State each in one short sentence: medicine name and days remaining. "
                 "Do not mention medicines that are well stocked unless every medicine is well stocked, in which case say that plainly. "
                 "Use no more than three short sentences before one clear question about refill help. "
                 "For a recorded family call request, keep the response to the brief specialist wording and do not add technical system limitations. "
+                "Never mention simulations, local queues, prototypes, MCP tools, databases, or implementation details. "
+                "When a specialist confirms a communication action, speak of it as completed in plain, confident language. "
                 "Never claim that a phone-book contact can be annotated, labelled, or edited unless the specialist result explicitly confirms it. "
-                "Kindred can save contacts to its own prototype phone book through the routed Companion workflow. Do not describe this as operating the user's physical phone. "
+                "Kindred can save contacts through the routed Companion workflow. Do not describe internal implementation details. "
                 "Do not use Markdown, headings, asterisks, tables, or dense lists."
             ),
                 user_message=cleaned,
@@ -197,6 +201,15 @@ class MasterAgent:
             return f"Medication supply: {self._guardian.medication_supply()}"
         if route.intent == "medication_status":
             status = self._guardian.medication_status_today()
+            # "What is my next medicine?" is a schedule question.  A missed
+            # or unrecorded earlier dose must never be presented as the next
+            # medicine to take.
+            if self._is_next_medication_question(message):
+                upcoming = status["upcoming"]
+                if upcoming:
+                    next_dose = upcoming[0]
+                    return f"FINAL_REPLY: Your next medicine is {next_dose['medication_name']} at {next_dose['scheduled_time']}."
+                return "FINAL_REPLY: There are no more medicine doses scheduled for today."
             not_taken = status["not_taken"]
             if not_taken:
                 summary = ", ".join(f"{dose['medication_name']} at {dose['scheduled_time']}" for dose in not_taken)
@@ -240,6 +253,17 @@ class MasterAgent:
                 return f"Confirmed replenishment request: {request}"
         result: dict[str, Any] = self._guardian.analyze_message(message)
         return f"Guardian safety result: {result}"
+
+    @staticmethod
+    def _is_next_medication_question(message: str) -> bool:
+        """Recognize a direct request for the next scheduled dose.
+
+        The Router deliberately keeps the broad ``medication_status`` intent;
+        this small semantic distinction lets the specialist choose schedule
+        order over adherence exceptions.
+        """
+        lowered = message.casefold()
+        return bool(re.search(r"\b(next|upcoming)\b.*\b(medicine|medication|dose|pill)s?\b|\bwhen\b.*\b(next|take)\b.*\b(medicine|medication|dose|pill)s?\b", lowered))
 
     def _start_medication_checklist(self, route: AgentRoute, *, session_id: str) -> str:
         """Ask one simple yes/no question for each due medication dose."""
@@ -408,11 +432,10 @@ class MasterAgent:
                         "item_name": route.household_item_name,
                         "quantity": str(route.quantity),
                     })
-                    return f"FINAL_REPLY: I can request {route.quantity} {route.household_item_name}. Shall I place this simulated request?"
-                request = self._logistics.request_purchase(
-                    item_name=route.household_item_name, quantity=route.quantity, user_confirmed=True,
+                    return f"FINAL_REPLY: I can request {route.quantity} {route.household_item_name}. Shall I place the request?"
+                return self._record_household_purchase(
+                    item_name=route.household_item_name, quantity=route.quantity,
                 )
-                return f"FINAL_REPLY: Your request for {request['quantity']} {request['item_name']} has been recorded."
         if route.intent == "household_reminder":
             if route.reminder_title and route.remind_at:
                 reminder = self._logistics.schedule_reminder(
@@ -550,13 +573,27 @@ class MasterAgent:
         lowered = message.casefold().strip()
         if re.search(r"\b(yes|confirm|go ahead|request)\b", lowered):
             try:
-                request = self._logistics.request_purchase(
-                    item_name=pending["item_name"], quantity=int(pending["quantity"]), user_confirmed=True,
+                return self._record_household_purchase(
+                    item_name=pending["item_name"], quantity=int(pending["quantity"]),
                 )
             finally:
                 self._conversation_state.clear_pending_action(session_id)
-            return f"FINAL_REPLY: Your request for {request['quantity']} {request['item_name']} has been recorded."
         if re.search(r"\b(no|cancel|don't|do not)\b", lowered):
             self._conversation_state.clear_pending_action(session_id)
             return "FINAL_REPLY: I have not recorded a purchase request."
         return "FINAL_REPLY: Please say yes to record this purchase request, or no to cancel."
+
+    def _record_household_purchase(self, *, item_name: str, quantity: int) -> str:
+        """Record a known household item without leaking MCP validation errors."""
+        try:
+            request = self._logistics.request_purchase(
+                item_name=item_name, quantity=quantity, user_confirmed=True,
+            )
+        except ValueError as error:
+            if "not present in inventory" in str(error).casefold():
+                return (
+                    f"FINAL_REPLY: I cannot find {item_name} in your household supplies yet. "
+                    "Please ask your family member to add it first."
+                )
+            return "FINAL_REPLY: I could not record that purchase request. Please try again."
+        return f"FINAL_REPLY: Your request for {request['quantity']} {request['item_name']} has been recorded."

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import "./voice.css";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -98,6 +98,9 @@ export function App() {
   const [notice, setNotice] = useState("");
   const [voiceStatus, setVoiceStatus] = useState<"idle" | "listening" | "sending">("idle");
   const [voiceReview, setVoiceReview] = useState("");
+  const finishVoiceInputRef = useRef<(() => void) | null>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
+  const deliveredReminderIds = useRef<Set<string>>(new Set());
   const [medications, setMedications] = useState<Medication[]>([]);
   const [medicationSupply, setMedicationSupply] = useState<MedicationSupply[]>([]);
   const [phoneMessages, setPhoneMessages] = useState<PhoneMessage[]>([]);
@@ -119,6 +122,36 @@ export function App() {
     } catch { setNotice("The dashboard will refresh when the Kindred backend is running."); }
   };
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    if (!signedIn || role !== "elder") return;
+    let cancelled = false;
+    const checkDueReminders = async () => {
+      try {
+        const scheduled = await api<Reminder[]>("/logistics/reminders");
+        if (cancelled) return;
+        setReminders(scheduled);
+        const now = Date.now();
+        // Check frequently while the Care Hub is open. The small grace window
+        // means a reminder appears promptly even if a poll is a few seconds late.
+        const due = scheduled.filter(item => {
+          const dueAt = new Date(item.remind_at).getTime();
+          return dueAt <= now && now - dueAt <= 60_000 && !deliveredReminderIds.current.has(item.id);
+        });
+        for (const reminder of due) {
+          deliveredReminderIds.current.add(reminder.id);
+          const announcement = `Reminder: ${reminder.title}.`;
+          setMessages(items => [...items, { role: "assistant", content: announcement }]);
+          setNotice(announcement);
+          void speakWithKindredVoice(announcement).catch(() => undefined);
+        }
+      } catch {
+        // Background polling must never overwrite an active conversation error.
+      }
+    };
+    void checkDueReminders();
+    const interval = window.setInterval(() => { void checkDueReminders(); }, 10_000);
+    return () => { cancelled = true; window.clearInterval(interval); };
+  }, [signedIn, role]);
   useEffect(() => {
     if (!signedIn) return;
     void api<{ thought: string }>("/master/welcome-thought", { method: "POST" })
@@ -151,15 +184,29 @@ export function App() {
     }
     const recognition = new Recognition();
     let finalTranscript = "";
+    let latestTranscript = "";
+    let voiceInputCompleted = false;
     let pauseTimer: number | undefined;
-    const reviewVoiceTranscript = () => {
-      if (!finalTranscript) { setVoiceStatus("idle"); return; }
+    const completeVoiceInput = () => {
+      if (pauseTimer) { window.clearTimeout(pauseTimer); pauseTimer = undefined; }
+      const transcript = finalTranscript || latestTranscript;
+      if (!transcript) {
+        setVoiceStatus("idle");
+        setNotice("I did not hear any words. Please try again.");
+        return;
+      }
+      voiceInputCompleted = true;
       recognition.stop();
-      setDraft(finalTranscript);
-      setVoiceReview(finalTranscript);
+      setDraft(transcript);
+      setVoiceReview(transcript);
       setVoiceStatus("idle");
       setNotice("Please check what I heard, then send it or try speaking again.");
+      window.setTimeout(() => messageInputRef.current?.focus(), 0);
     };
+    // Silence and the explicit button both stop recording and open review.
+    // Only the visible "Send this" button can submit a voice transcript.
+    const reviewVoiceTranscript = () => completeVoiceInput();
+    finishVoiceInputRef.current = () => completeVoiceInput();
     const waitForPossibleContinuation = () => {
       if (pauseTimer) window.clearTimeout(pauseTimer);
       pauseTimer = window.setTimeout(reviewVoiceTranscript, VOICE_PAUSE_MS);
@@ -171,6 +218,7 @@ export function App() {
     recognition.onstart = () => { setVoiceStatus("listening"); setNotice("Listening… take your time. Kindred will wait briefly after you pause."); };
     recognition.onresult = (event) => {
       const transcript = Array.from(event.results).map(result => result[0].transcript).join(" ").trim();
+      latestTranscript = transcript;
       setDraft(transcript);
       if (event.results[event.results.length - 1]?.isFinal) {
         finalTranscript = transcript;
@@ -181,8 +229,10 @@ export function App() {
       if (pauseTimer) window.clearTimeout(pauseTimer);
       setVoiceStatus("idle");
       if (event.error !== "aborted") setNotice(`Voice input could not start: ${event.error}. Check your microphone permission and try again.`);
+      finishVoiceInputRef.current = null;
     };
     recognition.onend = () => {
+      if (voiceInputCompleted) return;
       if (finalTranscript && !pauseTimer) waitForPossibleContinuation();
       if (!finalTranscript) setVoiceStatus("idle");
     };
@@ -236,6 +286,7 @@ export function App() {
       <section className="voice-canvas">
         <div className="agent-status"><span className={loading || voiceStatus !== "idle" ? "status-dot busy" : "status-dot"} />{voiceStatus === "listening" ? "Listening…" : voiceStatus === "sending" || loading ? text.thinking : "Kindred is ready"}</div>
         <button className={`voice-orb ${voiceStatus === "listening" ? "listening" : ""}`} onClick={startVoiceConversation} aria-label={text.listen} aria-pressed={voiceStatus === "listening"}><span>✦</span><strong>{voiceStatus === "listening" ? "Listening…" : text.listen}</strong><small>{voiceStatus === "listening" ? "Pause when you are finished" : text.chat}</small></button>
+        {voiceStatus === "listening" && <button className="voice-finish" onClick={() => finishVoiceInputRef.current?.()}>I’m finished — review</button>}
         <p className="voice-help">Talk with me about anything you would like. I am here to listen and help.</p>
         {voiceReview && <div className="voice-review" role="status"><p><strong>I heard:</strong> “{voiceReview}”</p><div><button onClick={() => { const transcript = voiceReview; setVoiceReview(""); void sendMessage(transcript, true); }}>Send this</button><button className="quiet-button" onClick={() => { setVoiceReview(""); setDraft(""); setNotice(""); }}>Try again</button></div></div>}
       </section>
@@ -243,7 +294,7 @@ export function App() {
     </section>}
     <section className="lower-grid">
       <section className="info-card"><div className="section-title"><h2>Medication today</h2><button onClick={() => setDraft("Show my medication schedule")}>Ask Kindred</button></div>{medications.length ? medications.map(item => <p className="medicine" key={item.id}><span>✓</span><strong>{item.medication_name}</strong><small>{item.dose_instructions} · {item.daily_times.join(", ")}</small></p>) : <p>Medication information appears here when the backend is running.</p>}</section>
-      <section className="chat-card"><div className="section-title"><h2>{text.chat}</h2><button onClick={() => setMessages([{ role: "assistant", content: "Conversation cleared. How can I help?" }])}>Clear</button></div><div className="chat" aria-live="polite">{messages.slice(-4).map((message, index) => <p className={`bubble ${message.role}`} key={index}>{readableChatText(message.content)}</p>)}{loading && <p className="bubble assistant">{text.thinking}…</p>}</div><form onSubmit={send}><label htmlFor="message">Type your message</label><div className="composer"><input id="message" value={draft} onChange={event => setDraft(event.target.value)} placeholder="For example: Tell my son to call me" /><button>Send</button></div></form></section>
+      <section className="chat-card"><div className="section-title"><h2>{text.chat}</h2><button onClick={() => setMessages([{ role: "assistant", content: "Conversation cleared. How can I help?" }])}>Clear</button></div><div className="chat" aria-live="polite">{messages.slice(-4).map((message, index) => <p className={`bubble ${message.role}`} key={index}>{readableChatText(message.content)}</p>)}{loading && <p className="bubble assistant">{text.thinking}…</p>}</div><form onSubmit={send}><label htmlFor="message">Type your message</label><div className="composer"><input ref={messageInputRef} id="message" value={draft} onChange={event => setDraft(event.target.value)} placeholder="For example: Tell my son to call me" /><button>Send</button></div></form></section>
     </section>
     {notice && <p className="notice" role="status">{notice}</p>}
     <p className="prototype-footer">Prototype mode · no real calls, messages, purchases, or health decisions are made.</p>
@@ -254,7 +305,12 @@ export function App() {
 function TodayCare({ medications, reminders, phoneMessages }: { medications: Medication[]; reminders: Reminder[]; phoneMessages: PhoneMessage[] }) {
   const now = new Date();
   const todayKey = now.toDateString();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const osloClock = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Oslo", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(now);
+  const osloHours = Number(osloClock.find(part => part.type === "hour")?.value ?? "0");
+  const osloMinutes = Number(osloClock.find(part => part.type === "minute")?.value ?? "0");
+  const currentMinutes = osloHours * 60 + osloMinutes;
   const nextMedicine = medications.flatMap(medicine => medicine.daily_times.map(time => {
     const [hours, minutes] = time.split(":").map(Number);
     return { medication_name: medicine.medication_name, time, minutes: hours * 60 + minutes };

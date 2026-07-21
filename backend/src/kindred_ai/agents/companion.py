@@ -1,4 +1,5 @@
 """Companion Agent orchestration over approved Memory and Communication MCPs."""
+from difflib import SequenceMatcher
 import re
 from datetime import date, datetime
 from kindred_ai.infrastructure.mcp_clients import CommunicationMcpClient, MemoryMcpClient
@@ -78,6 +79,21 @@ class CompanionAgent:
                 item for item in contacts
                 if query in item["display_name"].casefold() or query in item["relationship"].casefold()
             ]
+        if not matches:
+            # Voice transcription and spoken possessives can introduce a small
+            # one-letter difference, such as "Smith's" for saved contact "Smit".
+            # Accept only one clearly best near-name match; never guess when
+            # two contacts are equally close.
+            normalized_name = re.sub(r"(?:'s|s)\b$", "", re.sub(r"[^a-z0-9]+", "", query))
+            scored = [
+                (SequenceMatcher(None, normalized_name, re.sub(r"[^a-z0-9]+", "", item["display_name"].casefold())).ratio(), item)
+                for item in contacts
+            ]
+            if scored:
+                best_score = max(score for score, _ in scored)
+                best = [item for score, item in scored if score == best_score]
+                if len(normalized_name) >= 3 and best_score >= 0.82 and len(best) == 1:
+                    matches = best
         if not matches:
             raise ValueError("Phone book contact was not found.")
         if len(matches) > 1:

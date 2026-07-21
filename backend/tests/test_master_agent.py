@@ -416,6 +416,18 @@ class MasterAgentTests(unittest.TestCase):
         self.assertEqual("John Baker", companion.resolve_phone_book_contact("my son who is depressed")["display_name"])
         self.assertEqual("Jonathon", companion.resolve_phone_book_contact("my son-in-law needs encouragement")["display_name"])
 
+    def test_companion_accepts_one_clear_near_name_match_for_voice_input(self) -> None:
+        class FakeMemory:
+            pass
+
+        class FakeCommunication:
+            def get_phone_book(self):
+                return [{"id": "smit", "display_name": "Smit", "relationship": "friend"}]
+
+        from kindred_ai.agents.companion import CompanionAgent
+        companion = CompanionAgent(FakeMemory(), FakeCommunication(), object())
+        self.assertEqual("Smit", companion.resolve_phone_book_contact("Smith's")["display_name"])
+
     def test_master_normalizes_router_time_only_reminder_for_today(self) -> None:
         class FakeConversationModel:
             def respond(self, **kwargs: object) -> str:
@@ -491,6 +503,28 @@ class MasterAgentTests(unittest.TestCase):
 
         reply = MasterAgent(ModelThatMustNotRun(), StatusGuardian(), StatusRouter()).respond("What medicine have I not taken today?")
         self.assertEqual("You have not recorded Metformin at 08:00 today.", reply)
+
+    def test_next_medicine_uses_the_next_scheduled_dose_not_an_unrecorded_one(self) -> None:
+        class ModelThatMustNotRun:
+            def respond(self, **_: object) -> str:
+                raise AssertionError("Medication status is a direct specialist result.")
+
+        class StatusRouter:
+            def route(self, message: str) -> AgentRoute:
+                return AgentRoute(
+                    agent="guardian", intent="medication_status", language="en",
+                    medication_name=None, quantity=None,
+                )
+
+        class StatusGuardian:
+            def medication_status_today(self) -> dict[str, list[dict[str, str]]]:
+                return {
+                    "not_taken": [{"medication_name": "Levothyroxine", "scheduled_time": "10:00"}],
+                    "upcoming": [{"medication_name": "Atorvastatin", "scheduled_time": "20:30"}],
+                }
+
+        reply = MasterAgent(ModelThatMustNotRun(), StatusGuardian(), StatusRouter()).respond("When is my next medicine?")
+        self.assertEqual("Your next medicine is Atorvastatin at 20:30.", reply)
 
     def test_master_answers_current_time_from_its_oslo_context(self) -> None:
         class ModelThatMustNotRun:
